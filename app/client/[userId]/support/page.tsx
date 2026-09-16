@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   ShoppingBag,
@@ -55,6 +55,8 @@ type Message = {
 
 export default function ClientSupportPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const routeUserId = pathname.split("/")[2];
   const supabase = createClient();
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -469,32 +471,32 @@ async function createConversation() {
           <MobileNavItem
             icon={<Home size={17} strokeWidth={1.8} />}
             label="Home"
-            onClick={() => router.push("/client")}
+            onClick={() => router.push(`/client/${routeUserId}`)}
           />
 
           <MobileNavItem
             icon={<ShoppingBag size={17} strokeWidth={1.8} />}
             label="Orders"
-            onClick={() => router.push("/client/orders")}
+            onClick={() => router.push(`/client/${routeUserId}/orders`)}
           />
 
           <MobileNavItem
             icon={<MessageCircle size={17} strokeWidth={1.8} />}
             label="Support"
             active
-            onClick={() => router.push("/client/support")}
+            onClick={() => router.push(`/client/${routeUserId}/support`)}
           />
 
           <MobileNavItem
             icon={<ClipboardList size={17} strokeWidth={1.8} />}
             label="Requests"
-            onClick={() => router.push("/client/requests")}
+            onClick={() => router.push(`/client/${routeUserId}/requests`)}
           />
 
           <MobileNavItem
             icon={<UserCircle size={17} strokeWidth={1.8} />}
             label="Profile"
-            onClick={() => router.push("/client/profile")}
+            onClick={() => router.push(`/client/${routeUserId}/profile`)}
           />
         </nav>
       </header>
@@ -526,32 +528,32 @@ async function createConversation() {
               <SidebarItem
                 icon={<Home size={18} strokeWidth={1.8} />}
                 label="Home"
-                onClick={() => router.push("/client")}
+                onClick={() => router.push(`/client/${routeUserId}`)}
               />
 
               <SidebarItem
                 icon={<ShoppingBag size={18} strokeWidth={1.8} />}
                 label="Orders"
-                onClick={() => router.push("/client/orders")}
+                onClick={() => router.push(`/client/${routeUserId}/orders`)}
               />
 
               <SidebarItem
                 icon={<MessageCircle size={18} strokeWidth={1.8} />}
                 label="Customer Support"
                 active
-                onClick={() => router.push("/client/support")}
+                onClick={() => router.push(`/client/${routeUserId}/support`)}
               />
 
               <SidebarItem
                 icon={<ClipboardList size={18} strokeWidth={1.8} />}
                 label="Requests"
-                onClick={() => router.push("/client/requests")}
+                onClick={() => router.push(`/client/${routeUserId}/requests`)}
               />
 
               <SidebarItem
                 icon={<UserCircle size={18} strokeWidth={1.8} />}
                 label="Profile"
-                onClick={() => router.push("/client/profile")}
+                onClick={() => router.push(`/client/${routeUserId}/profile`)}
               />
             </div>
           </nav>

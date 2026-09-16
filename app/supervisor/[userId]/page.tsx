@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   BookOpen,
@@ -22,6 +22,8 @@ type Profile = {
 
 export default function SupervisorPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const routeUserId = pathname.split("/")[2];
   const supabase = createClient();
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -102,25 +104,25 @@ export default function SupervisorPage() {
             icon={<Home size={17} strokeWidth={1.8} />}
             label="Home"
             active
-            onClick={() => router.push("/supervisor")}
+            onClick={() => router.push(`/supervisor/${routeUserId}`)}
           />
 
           <MobileNavItem
             icon={<BookOpen size={17} strokeWidth={1.8} />}
             label="Knowledge Base"
-            onClick={() => router.push("/supervisor/knowledge-base")}
+            onClick={() => router.push(`/supervisor/${routeUserId}/knowledge-base`)}
           />
 
           <MobileNavItem
             icon={<LayoutDashboard size={17} strokeWidth={1.8} />}
             label="Dashboard"
-            onClick={() => router.push("/supervisor/dashboard")}
+            onClick={() => router.push(`/supervisor/${routeUserId}/dashboard`)}
           />
 
           <MobileNavItem
             icon={<AlertTriangle size={17} strokeWidth={1.8} />}
             label="Escalations"
-            onClick={() => router.push("/supervisor/escalations")}
+            onClick={() => router.push(`/supervisor/${routeUserId}/escalations`)}
           />
         </nav>
       </header>
@@ -154,25 +156,25 @@ export default function SupervisorPage() {
                 icon={<Home size={18} strokeWidth={1.8} />}
                 label="Home"
                 active
-                onClick={() => router.push("/supervisor")}
+                onClick={() => router.push(`/supervisor/${routeUserId}`)}
               />
 
               <SidebarItem
                 icon={<BookOpen size={18} strokeWidth={1.8} />}
                 label="Knowledge Base"
-                onClick={() => router.push("/supervisor/knowledge-base")}
+                onClick={() => router.push(`/supervisor/${routeUserId}/knowledge-base`)}
               />
 
               <SidebarItem
                 icon={<LayoutDashboard size={18} strokeWidth={1.8} />}
                 label="Dashboard"
-                onClick={() => router.push("/supervisor/dashboard")}
+                onClick={() => router.push(`/supervisor/${routeUserId}/dashboard`)}
               />
 
               <SidebarItem
                 icon={<AlertTriangle size={18} strokeWidth={1.8} />}
                 label="Escalations"
-                onClick={() => router.push("/supervisor/escalations")}
+                onClick={() => router.push(`/supervisor/${routeUserId}/escalations`)}
               />
 
             </div>

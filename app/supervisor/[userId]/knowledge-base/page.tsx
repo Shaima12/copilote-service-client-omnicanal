@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   BookOpen,
@@ -44,6 +44,8 @@ type DeleteTarget = {
 
 export default function KnowledgeBasePage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const routeUserId = pathname.split("/")[2];
   const supabase = createClient();
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -433,7 +435,7 @@ export default function KnowledgeBasePage() {
           <MobileNavItem
             icon={<Home size={17} />}
             label="Home"
-            onClick={() => router.push("/supervisor")}
+            onClick={() => router.push(`/supervisor/${routeUserId}`)}
           />
 
           <MobileNavItem
@@ -441,7 +443,7 @@ export default function KnowledgeBasePage() {
             label="Knowledge Base"
             active
             onClick={() =>
-              router.push("/supervisor/knowledge-base")
+              router.push(`/supervisor/${routeUserId}/knowledge-base`)
             }
           />
 
@@ -449,7 +451,7 @@ export default function KnowledgeBasePage() {
             icon={<LayoutDashboard size={17} />}
             label="Dashboard"
             onClick={() =>
-              router.push("/supervisor/dashboard")
+              router.push(`/supervisor/${routeUserId}/dashboard`)
             }
           />
 
@@ -457,7 +459,7 @@ export default function KnowledgeBasePage() {
             icon={<AlertTriangle size={17} />}
             label="Escalations"
             onClick={() =>
-              router.push("/supervisor/escalations")
+              router.push(`/supervisor/${routeUserId}/escalations`)
             }
           />
 
@@ -492,7 +494,7 @@ export default function KnowledgeBasePage() {
               <SidebarItem
                 icon={<Home size={18} />}
                 label="Home"
-                onClick={() => router.push("/supervisor")}
+                onClick={() => router.push(`/supervisor/${routeUserId}`)}
               />
 
               <SidebarItem
@@ -500,7 +502,7 @@ export default function KnowledgeBasePage() {
                 label="Knowledge Base"
                 active
                 onClick={() =>
-                  router.push("/supervisor/knowledge-base")
+                  router.push(`/supervisor/${routeUserId}/knowledge-base`)
                 }
               />
 
@@ -508,7 +510,7 @@ export default function KnowledgeBasePage() {
                 icon={<LayoutDashboard size={18} />}
                 label="Dashboard"
                 onClick={() =>
-                  router.push("/supervisor/dashboard")
+                  router.push(`/supervisor/${routeUserId}/dashboard`)
                 }
               />
 
@@ -516,7 +518,7 @@ export default function KnowledgeBasePage() {
                 icon={<AlertTriangle size={18} />}
                 label="Escalations"
                 onClick={() =>
-                  router.push("/supervisor/escalations")
+                  router.push(`/supervisor/${routeUserId}/escalations`)
                 }
               />
 

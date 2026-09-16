@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   MessageSquare,
@@ -31,6 +31,8 @@ type Conversation = {
 
 export default function AgentHomePage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const routeUserId = pathname.split("/")[2];
   const supabase = createClient();
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -165,31 +167,31 @@ export default function AgentHomePage() {
             icon={<Home size={17} />}
             label="Home"
             active
-            onClick={() => router.push("/agent")}
+            onClick={() => router.push(`/agent/${routeUserId}`)}
           />
 
           <MobileNavItem
             icon={<CircleHelp size={17} />}
             label="FAQ"
-            onClick={() => router.push("/agent/faq")}
+            onClick={() => router.push(`/agent/${routeUserId}/faq`)}
           />
 
           <MobileNavItem
             icon={<MessageSquare size={17} />}
             label="Conversations"
-            onClick={() => router.push("/agent/conversations")}
+            onClick={() => router.push(`/agent/${routeUserId}/conversations`)}
           />
 
           <MobileNavItem
             icon={<AlertTriangle size={17} />}
             label="Escalations"
-            onClick={() => router.push("/agent/escalations")}
+            onClick={() => router.push(`/agent/${routeUserId}/escalations`)}
           />
 
           <MobileNavItem
             icon={<UserCircle size={17} />}
             label="Profile"
-            onClick={() => router.push("/agent/profile")}
+            onClick={() => router.push(`/agent/${routeUserId}/profile`)}
           />
 
         </nav>
@@ -228,14 +230,14 @@ export default function AgentHomePage() {
                 icon={<Home size={18} />}
                 label="Home"
                 active
-                onClick={() => router.push("/agent")}
+                onClick={() => router.push(`/agent/${routeUserId}`)}
               />
 
               <SidebarItem
                 icon={<CircleHelp size={18} />}
                 label="FAQ"
                 onClick={() =>
-                  router.push("/agent/faq")
+                  router.push(`/agent/${routeUserId}/faq`)
                 }
               />
 
@@ -243,7 +245,7 @@ export default function AgentHomePage() {
                 icon={<MessageSquare size={18} />}
                 label="Conversations"
                 onClick={() =>
-                  router.push("/agent/conversations")
+                  router.push(`/agent/${routeUserId}/conversations`)
                 }
               />
 
@@ -251,7 +253,7 @@ export default function AgentHomePage() {
                 icon={<AlertTriangle size={18} />}
                 label="Escalations"
                 onClick={() =>
-                  router.push("/agent/escalations")
+                  router.push(`/agent/${routeUserId}/escalations`)
                 }
               />
 
@@ -259,7 +261,7 @@ export default function AgentHomePage() {
                 icon={<UserCircle size={18} />}
                 label="Profile"
                 onClick={() =>
-                  router.push("/agent/profile")
+                  router.push(`/agent/${routeUserId}/profile`)
                 }
               />
 
@@ -334,7 +336,7 @@ export default function AgentHomePage() {
 
                 <button
                   onClick={() =>
-                    router.push("/agent/conversations")
+                    router.push(`/agent/${routeUserId}/conversations`)
                   }
                   className="flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800"
                 >
@@ -410,7 +412,7 @@ export default function AgentHomePage() {
 
                 <button
                   onClick={() =>
-                    router.push("/agent/faq")
+                    router.push(`/agent/${routeUserId}/faq`)
                   }
                   className="rounded-lg p-2.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-900"
                 >

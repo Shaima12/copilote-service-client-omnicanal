@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   AlertCircle,
   ClipboardList,
@@ -35,6 +35,8 @@ type Order = {
 
 export default function ClientPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const routeUserId = pathname.split("/")[2];
   const supabase = createClient();
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -165,28 +167,24 @@ console.log("==================================");
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f8f5] text-[#14231f]">
+    <main className="min-h-screen bg-[#f8f9fa] text-gray-900">
 
       {/* ================= MOBILE HEADER ================= */}
-      <header className="sticky top-0 z-40 border-b border-[#e4eae5] bg-white lg:hidden">
-        <div className="flex items-center justify-between px-4 py-4">
+      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white md:hidden">
+        <div className="flex items-center justify-between px-5 py-4">
 
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#14231f] text-sm font-bold text-[#f6c96e]">
-              Z
-            </div>
-
-            <div>
-              <p className="text-sm font-bold">ZEN</p>
-              <p className="text-[11px] text-[#8a9890]">
-                Customer Portal
-              </p>
-            </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-gray-900">
+              ZEN
+            </h1>
+            <p className="mt-0.5 text-[11px] text-gray-500">
+              Customer Portal
+            </p>
           </div>
 
           <button
             onClick={handleSignOut}
-            className="rounded-lg p-2 text-[#718078] transition hover:bg-[#f0f3f0]"
+            className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
             aria-label="Sign out"
           >
             <LogOut size={18} />
@@ -194,32 +192,39 @@ console.log("==================================");
         </div>
 
         {/* Mobile navigation */}
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-3">
+        <nav className="flex gap-1 overflow-x-auto border-t border-gray-100 px-4 py-2">
 
           <a
-            href="/client/orders"
-            className="flex shrink-0 items-center gap-2 rounded-lg bg-[#edf6ee] px-4 py-2 text-sm font-semibold text-[#52705d]"
+            href={`/client/${routeUserId}`}
+            className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50"
+          >
+            <Home size={17} strokeWidth={1.8} /> Home
+          </a>
+
+          <a
+            href={`/client/${routeUserId}/orders`}
+            className="flex shrink-0 items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700"
           >
             <ShoppingBag size={16} /> Orders
           </a>
 
           <a
-            href="/client/support"
-            className="flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm text-[#718078] hover:bg-[#f0f3f0]"
+            href={`/client/${routeUserId}/support`}
+            className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50"
           >
             <MessageCircle size={16} /> Support
           </a>
 
           <a
-            href="/client/requests"
-            className="flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm text-[#718078] hover:bg-[#f0f3f0]"
+            href={`/client/${routeUserId}/requests`}
+            className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50"
           >
             <ClipboardList size={16} /> Requests
           </a>
 
           <a
-            href="/client/profile"
-            className="flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm text-[#718078] hover:bg-[#f0f3f0]"
+            href={`/client/${routeUserId}/profile`}
+            className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50"
           >
             <UserCircle size={16} /> Profile
           </a>
@@ -230,63 +235,60 @@ console.log("==================================");
       <div className="flex min-h-screen">
 
         {/* ================= DESKTOP SIDEBAR ================= */}
-        <aside className="fixed left-0 top-0 hidden h-screen w-64 flex-col border-r border-[#e4eae5] bg-white lg:flex">
+        <aside className="fixed inset-y-0 left-0 hidden w-64 shrink-0 border-r border-gray-200 bg-white md:flex md:flex-col">
 
           {/* Logo */}
-          <div className="border-b border-[#edf0ed] px-6 py-6">
-            <div className="flex items-center gap-3">
-
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#14231f] text-sm font-bold text-[#f6c96e]">
-                Z
-              </div>
-
-              <div>
-                <p className="font-bold tracking-tight">
-                  ZEN
-                </p>
-
-                <p className="text-xs text-[#8a9890]">
-                  Customer Portal
-                </p>
-              </div>
-
-            </div>
+          <div className="border-b border-gray-100 px-6 py-6">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+              ZEN
+            </h1>
+            <p className="mt-1 text-xs text-gray-500">
+              Customer Portal
+            </p>
           </div>
 
           {/* Navigation */}
           <nav className="flex-1 px-3 py-6">
 
-            <p className="mb-3 px-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[#8a9890]">
-              My account
+            <p className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              My space
             </p>
 
             <a
-              href="/client/orders"
-              className="mb-1 flex items-center gap-3 rounded-xl bg-[#edf6ee] px-4 py-3 text-sm font-semibold text-[#52705d]"
+              href={`/client/${routeUserId}`}
+              className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
+            >
+              <Home size={18} strokeWidth={1.8} />
+              <span>Home</span>
+            </a>
+
+            <a
+              href={`/client/${routeUserId}/orders`}
+              className="mb-1 flex items-center gap-3 rounded-lg bg-green-50 px-3 py-2.5 text-sm font-medium text-green-700"
             >
               <ShoppingBag size={18} />
               <span>Orders</span>
             </a>
 
             <a
-              href="/client/support"
-              className="mb-1 flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-[#718078] transition hover:bg-[#f7f8f5] hover:text-[#14231f]"
+              href={`/client/${routeUserId}/support`}
+              className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
             >
               <MessageCircle size={18} />
               <span>Customer Support</span>
             </a>
 
             <a
-              href="/client/requests"
-              className="mb-1 flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-[#718078] transition hover:bg-[#f7f8f5] hover:text-[#14231f]"
+              href={`/client/${routeUserId}/requests`}
+              className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
             >
               <ClipboardList size={18} />
               <span>Requests</span>
             </a>
 
             <a
-              href="/client/profile"
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-[#718078] transition hover:bg-[#f7f8f5] hover:text-[#14231f]"
+              href={`/client/${routeUserId}/profile`}
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
             >
               <UserCircle size={18} />
               <span>Profile</span>
@@ -295,11 +297,11 @@ console.log("==================================");
           </nav>
 
           {/* User */}
-          <div className="border-t border-[#edf0ed] p-4">
+          <div className="border-t border-gray-100 p-4">
 
             <div className="mb-4 flex items-center gap-3 px-2">
 
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#edf6ee] text-sm font-semibold text-[#52705d]">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-50 text-sm font-semibold text-green-700">
                 {customerName.charAt(0).toUpperCase()}
               </div>
 
@@ -308,7 +310,7 @@ console.log("==================================");
                   {customerName}
                 </p>
 
-                <p className="text-xs text-[#8a9890]">
+                <p className="text-xs text-gray-500">
                   Client
                 </p>
               </div>
@@ -317,7 +319,7 @@ console.log("==================================");
 
             <button
               onClick={handleSignOut}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[#718078] transition hover:bg-[#f7f8f5] hover:text-[#14231f]"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
             >
               <LogOut size={17} />
               Sign out
@@ -327,7 +329,7 @@ console.log("==================================");
         </aside>
 
         {/* ================= MAIN CONTENT ================= */}
-        <section className="min-h-screen flex-1 lg:ml-64">
+        <section className="min-h-screen flex-1 md:ml-64">
 
           {/* Header */}
           <header className="border-b border-[#e4eae5] bg-white">

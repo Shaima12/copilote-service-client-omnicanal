@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   ShoppingBag,
@@ -32,6 +32,8 @@ type Customer = {
 
 export default function ClientHomePage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const routeUserId = pathname.split("/")[2];
   const supabase = createClient();
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -155,31 +157,31 @@ export default function ClientHomePage() {
             icon={<Home size={17} strokeWidth={1.8} />}
             label="Home"
             active
-            onClick={() => router.push("/client")}
+            onClick={() => router.push(`/client/${routeUserId}`)}
           />
 
           <MobileNavItem
             icon={<ShoppingBag size={17} strokeWidth={1.8} />}
             label="Orders"
-            onClick={() => router.push("/client/orders")}
+            onClick={() => router.push(`/client/${routeUserId}/orders`)}
           />
 
           <MobileNavItem
             icon={<MessageCircle size={17} strokeWidth={1.8} />}
             label="Support"
-            onClick={() => router.push("/client/support")}
+            onClick={() => router.push(`/client/${routeUserId}/support`)}
           />
 
           <MobileNavItem
             icon={<ClipboardList size={17} strokeWidth={1.8} />}
             label="Requests"
-            onClick={() => router.push("/client/requests")}
+            onClick={() => router.push(`/client/${routeUserId}/requests`)}
           />
 
           <MobileNavItem
             icon={<UserCircle size={17} strokeWidth={1.8} />}
             label="Profile"
-            onClick={() => router.push("/client/profile")}
+            onClick={() => router.push(`/client/${routeUserId}/profile`)}
           />
 
         </nav>
@@ -222,31 +224,31 @@ export default function ClientHomePage() {
                 icon={<Home size={18} strokeWidth={1.8} />}
                 label="Home"
                 active
-                onClick={() => router.push("/client")}
+                onClick={() => router.push(`/client/${routeUserId}`)}
               />
 
               <SidebarItem
                 icon={<ShoppingBag size={18} strokeWidth={1.8} />}
                 label="Orders"
-                onClick={() => router.push("/client/orders")}
+                onClick={() => router.push(`/client/${routeUserId}/orders`)}
               />
 
               <SidebarItem
                 icon={<MessageCircle size={18} strokeWidth={1.8} />}
                 label="Customer Support"
-                onClick={() => router.push("/client/support")}
+                onClick={() => router.push(`/client/${routeUserId}/support`)}
               />
 
               <SidebarItem
                 icon={<ClipboardList size={18} strokeWidth={1.8} />}
                 label="Requests"
-                onClick={() => router.push("/client/requests")}
+                onClick={() => router.push(`/client/${routeUserId}/requests`)}
               />
 
               <SidebarItem
                 icon={<UserCircle size={18} strokeWidth={1.8} />}
                 label="Profile"
-                onClick={() => router.push("/client/profile")}
+                onClick={() => router.push(`/client/${routeUserId}/profile`)}
               />
 
             </div>
@@ -364,7 +366,7 @@ export default function ClientHomePage() {
 
 
                 <button
-                  onClick={() => router.push("/client/profile")}
+                  onClick={() => router.push(`/client/${routeUserId}/profile`)}
                   className="hidden items-center gap-2 rounded-lg border border-gray-200 px-3.5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 sm:flex"
                 >
                   Edit profile
@@ -422,7 +424,7 @@ export default function ClientHomePage() {
               <div className="border-t border-gray-100 px-6 py-4 sm:hidden">
 
                 <button
-                  onClick={() => router.push("/client/profile")}
+                  onClick={() => router.push(`/client/${routeUserId}/profile`)}
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                 >
                   Edit profile

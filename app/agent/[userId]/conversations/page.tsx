@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   MessageSquare,
@@ -310,6 +310,8 @@ function formatSimilarity(score: number) {
 
 export default function AgentConversationsPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const routeUserId = pathname.split("/")[2];
   const supabase = createClient();
 
   /* ======================================================= */
@@ -1857,7 +1859,7 @@ export default function AgentConversationsPage() {
             label="Home"
             onClick={() =>
               router.push(
-                "/agent"
+                `/agent/${routeUserId}`
               )
             }
           />
@@ -1869,7 +1871,7 @@ export default function AgentConversationsPage() {
             label="FAQ"
             onClick={() =>
               router.push(
-                "/agent/faq"
+                `/agent/${routeUserId}/faq`
               )
             }
           />
@@ -1882,7 +1884,7 @@ export default function AgentConversationsPage() {
             active
             onClick={() =>
               router.push(
-                "/agent/conversations"
+                `/agent/${routeUserId}/conversations`
               )
             }
           />
@@ -1894,7 +1896,7 @@ export default function AgentConversationsPage() {
             label="Escalations"
             onClick={() =>
               router.push(
-                "/agent/escalations"
+                `/agent/${routeUserId}/escalations`
               )
             }
           />
@@ -1906,7 +1908,7 @@ export default function AgentConversationsPage() {
             label="Profile"
             onClick={() =>
               router.push(
-                "/agent/profile"
+                `/agent/${routeUserId}/profile`
               )
             }
           />
@@ -1949,7 +1951,7 @@ export default function AgentConversationsPage() {
                 label="Home"
                 onClick={() =>
                   router.push(
-                    "/agent"
+                    `/agent/${routeUserId}`
                   )
                 }
               />
@@ -1961,7 +1963,7 @@ export default function AgentConversationsPage() {
                 label="FAQ"
                 onClick={() =>
                   router.push(
-                    "/agent/faq"
+                    `/agent/${routeUserId}/faq`
                   )
                 }
               />
@@ -1974,7 +1976,7 @@ export default function AgentConversationsPage() {
                 active
                 onClick={() =>
                   router.push(
-                    "/agent/conversations"
+                    `/agent/${routeUserId}/conversations`
                   )
                 }
               />
@@ -1986,7 +1988,7 @@ export default function AgentConversationsPage() {
                 label="Escalations"
                 onClick={() =>
                   router.push(
-                    "/agent/escalations"
+                    `/agent/${routeUserId}/escalations`
                   )
                 }
               />
@@ -1998,7 +2000,7 @@ export default function AgentConversationsPage() {
                 label="Profile"
                 onClick={() =>
                   router.push(
-                    "/agent/profile"
+                    `/agent/${routeUserId}/profile`
                   )
                 }
               />

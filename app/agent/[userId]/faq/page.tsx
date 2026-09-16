@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   BookOpen,
@@ -32,6 +32,8 @@ type Article = {
 
 export default function AgentFAQPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const routeUserId = pathname.split("/")[2];
   const supabase = createClient();
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -182,7 +184,7 @@ export default function AgentFAQPage() {
           <MobileNavItem
             icon={<Home size={17} />}
             label="Home"
-            onClick={() => router.push("/agent")}
+            onClick={() => router.push(`/agent/${routeUserId}`)}
           />
 
           <MobileNavItem
@@ -190,7 +192,7 @@ export default function AgentFAQPage() {
             label="FAQ"
             active
             onClick={() =>
-              router.push("/agent/faq")
+              router.push(`/agent/${routeUserId}/faq`)
             }
           />
 
@@ -198,7 +200,7 @@ export default function AgentFAQPage() {
             icon={<MessageSquare size={17} />}
             label="Conversations"
             onClick={() =>
-              router.push("/agent/conversations")
+              router.push(`/agent/${routeUserId}/conversations`)
             }
           />
 
@@ -206,7 +208,7 @@ export default function AgentFAQPage() {
             icon={<AlertTriangle size={17} />}
             label="Escalations"
             onClick={() =>
-              router.push("/agent/escalations")
+              router.push(`/agent/${routeUserId}/escalations`)
             }
           />
 
@@ -214,7 +216,7 @@ export default function AgentFAQPage() {
             icon={<UserCircle size={17} />}
             label="Profile"
             onClick={() =>
-              router.push("/agent/profile")
+              router.push(`/agent/${routeUserId}/profile`)
             }
           />
 
@@ -253,7 +255,7 @@ export default function AgentFAQPage() {
               <SidebarItem
                 icon={<Home size={18} />}
                 label="Home"
-                onClick={() => router.push("/agent")}
+                onClick={() => router.push(`/agent/${routeUserId}`)}
               />
 
               <SidebarItem
@@ -261,7 +263,7 @@ export default function AgentFAQPage() {
                 label="FAQ"
                 active
                 onClick={() =>
-                  router.push("/agent/faq")
+                  router.push(`/agent/${routeUserId}/faq`)
                 }
               />
 
@@ -269,7 +271,7 @@ export default function AgentFAQPage() {
                 icon={<MessageSquare size={18} />}
                 label="Conversations"
                 onClick={() =>
-                  router.push("/agent/conversations")
+                  router.push(`/agent/${routeUserId}/conversations`)
                 }
               />
 
@@ -277,7 +279,7 @@ export default function AgentFAQPage() {
                 icon={<AlertTriangle size={18} />}
                 label="Escalations"
                 onClick={() =>
-                  router.push("/agent/escalations")
+                  router.push(`/agent/${routeUserId}/escalations`)
                 }
               />
 
@@ -285,7 +287,7 @@ export default function AgentFAQPage() {
                 icon={<UserCircle size={18} />}
                 label="Profile"
                 onClick={() =>
-                  router.push("/agent/profile")
+                  router.push(`/agent/${routeUserId}/profile`)
                 }
               />
 

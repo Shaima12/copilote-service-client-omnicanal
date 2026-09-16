@@ -73,15 +73,15 @@ export default function LoginPage() {
     // 4. Redirect according to role
     switch (profile.role) {
       case "client":
-        router.push("/client");
+        router.push(`/client/${user.id}`);
         break;
 
       case "agent":
-        router.push("/agent");
+        router.push(`/agent/${user.id}`);
         break;
 
       case "supervisor":
-        router.push("/supervisor");
+        router.push(`/supervisor/${user.id}`);
         break;
 
       default:
