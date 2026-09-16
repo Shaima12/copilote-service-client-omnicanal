@@ -1635,6 +1635,27 @@ export default function AgentConversationsPage() {
       }
 
       /* ----------------------------------------------- */
+      /* CREATE ESCALATION TICKET                          */
+      /* ----------------------------------------------- */
+
+      const { error: ticketError } = await supabase
+        .from("tickets")
+        .insert({
+          conversation_id: conversationId,
+          reason:
+            "This conversation was escalated by the agent and requires supervisor expertise.",
+        });
+
+      if (ticketError) {
+        console.error(
+          "Escalation ticket creation error:",
+          ticketError
+        );
+
+        return;
+      }
+
+      /* ----------------------------------------------- */
       /* AUDIT ESCALATION                                  */
       /* ----------------------------------------------- */
 
