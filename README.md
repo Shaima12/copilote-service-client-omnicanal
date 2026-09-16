@@ -16,6 +16,19 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Supabase Realtime
+
+The conversation, message, and ticket screens subscribe to Supabase Realtime. Enable the tables in the Supabase SQL Editor before testing live updates:
+
+```sql
+alter publication supabase_realtime add table public.messages;
+alter publication supabase_realtime add table public.conversations;
+alter publication supabase_realtime add table public.tickets;
+alter publication supabase_realtime add table public.message_versions;
+```
+
+If a table is already in the publication, keep the existing entry. Realtime still follows the tables' Row Level Security policies; do not make these channels public to bypass authorization.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

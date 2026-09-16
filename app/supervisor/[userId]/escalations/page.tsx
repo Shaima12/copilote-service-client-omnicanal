@@ -19,6 +19,7 @@ import {
 
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/require-role";
+import EscalationRealtimeRefresh from "./realtime-refresh";
 
 type PageProps = {
   params: Promise<{
@@ -267,6 +268,7 @@ export default async function EscalationPage({
 
   return (
     <SupervisorShell userId={userId} profile={profile}>
+      <EscalationRealtimeRefresh />
 
         {/* Header */}
         <section>

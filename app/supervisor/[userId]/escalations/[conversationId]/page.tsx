@@ -33,6 +33,7 @@ import {
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/client";
+import { useConversationRealtime } from "@/lib/supabase/use-conversation-realtime";
 
 /* ========================================================= */
 /* TYPES                                                       */
@@ -375,6 +376,36 @@ export default function SupervisorEscalationConversationPage() {
 
     return () => window.clearInterval(timer);
   }, []);
+
+  useConversationRealtime({
+    conversationId,
+    onMessage: (message) => {
+      setMessages((current) => {
+        if (current.some((item) => item.id === message.id)) {
+          return current;
+        }
+
+        return [...current, message as Message];
+      });
+    },
+    onConversation: (updatedConversation) => {
+      setConversation((current) =>
+        current
+          ? { ...current, ...updatedConversation } as Conversation
+          : current
+      );
+    },
+    onTicket: (updatedTicket) => {
+      setTicket((current) =>
+        current
+          ? { ...current, ...updatedTicket } as Ticket
+          : updatedTicket as Ticket
+      );
+    },
+    onDraft: (updatedDraft) => {
+      setDraft(updatedDraft as MessageVersion);
+    },
+  });
 
   /* ======================================================= */
   /* LOAD                                                      */

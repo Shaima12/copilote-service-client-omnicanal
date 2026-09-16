@@ -19,6 +19,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useConversationRealtime } from "@/lib/supabase/use-conversation-realtime";
 
 type Profile = {
   id: string;
@@ -73,6 +74,36 @@ export default function ClientSupportPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
 
   const [mobileConversationOpen, setMobileConversationOpen] = useState(false);
+
+  useConversationRealtime({
+    conversationId: selectedConversation?.id ?? null,
+    onMessage: (message) => {
+      setMessages((current) => {
+        if (current.some((item) => item.id === message.id)) {
+          return current;
+        }
+
+        return [...current, message as Message];
+      });
+    },
+    onConversation: (updatedConversation) => {
+      const nextConversation = updatedConversation as Conversation;
+
+      setConversations((current) =>
+        current.map((item) =>
+          item.id === nextConversation.id
+            ? { ...item, ...nextConversation }
+            : item
+        )
+      );
+
+      setSelectedConversation((current) =>
+        current?.id === nextConversation.id
+          ? { ...current, ...nextConversation }
+          : current
+      );
+    },
+  });
 
   /*
    * ============================================================

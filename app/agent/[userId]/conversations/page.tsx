@@ -31,6 +31,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useConversationRealtime } from "@/lib/supabase/use-conversation-realtime";
 
 /* ========================================================= */
 /* TYPES                                                       */
@@ -391,6 +392,50 @@ export default function AgentConversationsPage() {
 
   const [rejectedDrafts, setRejectedDrafts] =
     useState<Record<string, boolean>>({});
+
+  useConversationRealtime({
+    conversationId: selectedConversationId,
+    onMessage: (message) => {
+      setMessages((current) => {
+        const conversationMessages = current[selectedConversationId || ""] || [];
+
+        if (conversationMessages.some((item) => item.id === message.id)) {
+          return current;
+        }
+
+        return {
+          ...current,
+          [selectedConversationId || ""]: [
+            ...conversationMessages,
+            message as Message,
+          ],
+        };
+      });
+    },
+    onConversation: (updatedConversation) => {
+      const nextConversation = updatedConversation as Conversation;
+
+      setConversations((current) =>
+        current.map((item) =>
+          item.id === nextConversation.id
+            ? { ...item, ...nextConversation }
+            : item
+        )
+      );
+    },
+    onDraft: (updatedDraft) => {
+      const draftConversationId = updatedDraft.conversation_id;
+
+      if (!draftConversationId) {
+        return;
+      }
+
+      setDrafts((current) => ({
+        ...current,
+        [draftConversationId]: updatedDraft as MessageVersion,
+      }));
+    },
+  });
 
   /* ======================================================= */
   /* LOAD DATA                                                 */
