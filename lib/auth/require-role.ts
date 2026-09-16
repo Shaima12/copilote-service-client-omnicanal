@@ -5,9 +5,14 @@ type Role = "client" | "agent" | "supervisor";
 
 export async function requireRole(
   userId: string,
-  requiredRole: Role
+  requiredRole: Role,
+  nextPath?: string
 ) {
   const supabase = await createClient();
+
+  const loginPath = nextPath
+    ? `/login?next=${encodeURIComponent(nextPath)}`
+    : "/login";
 
   // 1. Verify authentication
   const {
@@ -16,7 +21,7 @@ export async function requireRole(
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    redirect("/login");
+    redirect(loginPath);
   }
 
   // 2. Verify the URL userId belongs to the authenticated user

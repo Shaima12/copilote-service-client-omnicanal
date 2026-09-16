@@ -133,7 +133,11 @@ export default async function EscalationPage({
 }: PageProps) {
   const { userId } = await params;
 
-  await requireRole(userId, "supervisor");
+  await requireRole(
+    userId,
+    "supervisor",
+    `/supervisor/${userId}/escalations`
+  );
 
   const supabase = await createClient();
 
