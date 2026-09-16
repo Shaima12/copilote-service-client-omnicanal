@@ -448,7 +448,7 @@ export default function AgentConversationsPage() {
           table: "conversations",
         },
         async (payload) => {
-          console.log("REALTIME CONVERSATION EVENT:", payload);
+          console.log("🔥 REALTIME EVENT:", payload);
 
           if (payload.eventType === "DELETE") {
             setConversations((current) =>
@@ -512,7 +512,7 @@ export default function AgentConversationsPage() {
         }
       )
       .subscribe((status) => {
-        console.log("AGENT INBOX REALTIME:", status);
+        console.log("🔥 REALTIME STATUS:", status);
       });
 
     return () => {
