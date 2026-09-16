@@ -313,7 +313,7 @@ export default function AgentConversationsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const routeUserId = pathname.split("/")[2];
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   /* ======================================================= */
   /* STATE                                                     */
@@ -436,6 +436,89 @@ export default function AgentConversationsPage() {
       }));
     },
   });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`agent-inbox-${routeUserId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "conversations",
+        },
+        async (payload) => {
+          console.log("REALTIME CONVERSATION EVENT:", payload);
+
+          if (payload.eventType === "DELETE") {
+            setConversations((current) =>
+              current.filter((item) => item.id !== payload.old.id)
+            );
+            return;
+          }
+
+          const updatedConversation = payload.new as Conversation;
+
+          if (
+            !["new", "open"].includes(
+              updatedConversation.status
+            )
+          ) {
+            setConversations((current) =>
+              current.filter(
+                (item) => item.id !== updatedConversation.id
+              )
+            );
+            return;
+          }
+
+          setConversations((current) => {
+            const exists = current.some(
+              (item) => item.id === updatedConversation.id
+            );
+
+            if (exists) {
+              return current
+                .map((item) =>
+                  item.id === updatedConversation.id
+                    ? { ...item, ...updatedConversation }
+                    : item
+                )
+                .sort((left, right) =>
+                  left.created_at.localeCompare(right.created_at)
+                );
+            }
+
+            return [...current, updatedConversation].sort(
+              (left, right) =>
+                left.created_at.localeCompare(right.created_at)
+            );
+          });
+
+          if (payload.eventType === "INSERT") {
+            const { data: customer } = await supabase
+              .from("customers")
+              .select("id, full_name, email, phone")
+              .eq("id", updatedConversation.customer_id)
+              .maybeSingle();
+
+            if (customer) {
+              setCustomers((current) => ({
+                ...current,
+                [customer.id]: customer,
+              }));
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log("AGENT INBOX REALTIME:", status);
+      });
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [routeUserId, supabase]);
 
   /* ======================================================= */
   /* LOAD DATA                                                 */
