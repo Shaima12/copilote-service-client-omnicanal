@@ -12,10 +12,11 @@ export default async function SupervisorEscalationConversationLayout({
 }) {
   const { userId, conversationId } = await params;
 
-  const nextPath =
-    `/supervisor/${userId}/escalations/${conversationId}`;
-
-  await requireRole(userId, "supervisor", nextPath);
+  await requireRole(
+    userId,
+    "supervisor",
+    `/supervisor/${userId}/escalations/${conversationId}`
+  );
 
   return <>{children}</>;
 }

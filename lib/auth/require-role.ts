@@ -10,9 +10,13 @@ export async function requireRole(
 ) {
   const supabase = await createClient();
 
-  const loginPath = nextPath
-    ? `/login?next=${encodeURIComponent(nextPath)}`
-    : "/login";
+  const loginRedirect = (): never => {
+    const next = nextPath
+      ? `?next=${encodeURIComponent(nextPath)}`
+      : "";
+
+    redirect(`/login${next}`);
+  };
 
   // 1. Verify authentication
   const {
@@ -20,33 +24,41 @@ export async function requireRole(
     error: authError,
   } = await supabase.auth.getUser();
 
-  if (authError || !user) {
-    redirect(loginPath);
+  if (authError) {
+    loginRedirect();
   }
 
+  if (!user) {
+    loginRedirect();
+  }
+
+  const authenticatedUser = user as NonNullable<typeof user>;
+
   // 2. Verify the URL userId belongs to the authenticated user
-  if (user.id !== userId) {
-    redirect("/unauthorized");
+  if (authenticatedUser.id !== userId) {
+    loginRedirect();
   }
 
   // 3. Get the user's profile/role
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id, role")
-    .eq("id", user.id)
+    .eq("id", authenticatedUser.id)
     .maybeSingle();
 
   if (profileError || !profile) {
-    redirect("/unauthorized");
+    loginRedirect();
   }
 
+  const authenticatedProfile = profile as NonNullable<typeof profile>;
+
   // 4. Verify the role
-  if (profile.role !== requiredRole) {
-    redirect("/unauthorized");
+  if (authenticatedProfile.role !== requiredRole) {
+    loginRedirect();
   }
 
   return {
-    user,
-    profile,
+    user: authenticatedUser,
+    profile: authenticatedProfile,
   };
 }
