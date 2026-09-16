@@ -31,7 +31,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { useConversationRealtime } from "@/lib/supabase/use-conversation-realtime";
+import { useRealtime } from "@/hooks/use-realtime";
 
 /* ========================================================= */
 /* TYPES                                                       */
@@ -392,133 +392,6 @@ export default function AgentConversationsPage() {
 
   const [rejectedDrafts, setRejectedDrafts] =
     useState<Record<string, boolean>>({});
-
-  useConversationRealtime({
-    conversationId: selectedConversationId,
-    onMessage: (message) => {
-      setMessages((current) => {
-        const conversationMessages = current[selectedConversationId || ""] || [];
-
-        if (conversationMessages.some((item) => item.id === message.id)) {
-          return current;
-        }
-
-        return {
-          ...current,
-          [selectedConversationId || ""]: [
-            ...conversationMessages,
-            message as Message,
-          ],
-        };
-      });
-    },
-    onConversation: (updatedConversation) => {
-      const nextConversation = updatedConversation as Conversation;
-
-      setConversations((current) =>
-        current.map((item) =>
-          item.id === nextConversation.id
-            ? { ...item, ...nextConversation }
-            : item
-        )
-      );
-    },
-    onDraft: (updatedDraft) => {
-      const draftConversationId = updatedDraft.conversation_id;
-
-      if (!draftConversationId) {
-        return;
-      }
-
-      setDrafts((current) => ({
-        ...current,
-        [draftConversationId]: updatedDraft as MessageVersion,
-      }));
-    },
-  });
-
-  useEffect(() => {
-    const channel = supabase
-      .channel(`agent-inbox-${routeUserId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "conversations",
-        },
-        async (payload) => {
-          console.log("🔥 REALTIME EVENT:", payload);
-
-          if (payload.eventType === "DELETE") {
-            setConversations((current) =>
-              current.filter((item) => item.id !== payload.old.id)
-            );
-            return;
-          }
-
-          const updatedConversation = payload.new as Conversation;
-
-          if (
-            !["new", "open"].includes(
-              updatedConversation.status
-            )
-          ) {
-            setConversations((current) =>
-              current.filter(
-                (item) => item.id !== updatedConversation.id
-              )
-            );
-            return;
-          }
-
-          setConversations((current) => {
-            const exists = current.some(
-              (item) => item.id === updatedConversation.id
-            );
-
-            if (exists) {
-              return current
-                .map((item) =>
-                  item.id === updatedConversation.id
-                    ? { ...item, ...updatedConversation }
-                    : item
-                )
-                .sort((left, right) =>
-                  left.created_at.localeCompare(right.created_at)
-                );
-            }
-
-            return [...current, updatedConversation].sort(
-              (left, right) =>
-                left.created_at.localeCompare(right.created_at)
-            );
-          });
-
-          if (payload.eventType === "INSERT") {
-            const { data: customer } = await supabase
-              .from("customers")
-              .select("id, full_name, email, phone")
-              .eq("id", updatedConversation.customer_id)
-              .maybeSingle();
-
-            if (customer) {
-              setCustomers((current) => ({
-                ...current,
-                [customer.id]: customer,
-              }));
-            }
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log("🔥 REALTIME STATUS:", status);
-      });
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [routeUserId, supabase]);
 
   /* ======================================================= */
   /* LOAD DATA                                                 */
@@ -1176,6 +1049,10 @@ export default function AgentConversationsPage() {
       setLoading(false);
     }
   }
+
+  useRealtime(() => {
+    void loadAgentData();
+  });
 
   /* ======================================================= */
   /* AUDIT HELPER                                              */
