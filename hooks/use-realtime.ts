@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 const REALTIME_TABLES = [
@@ -14,10 +14,20 @@ const REALTIME_TABLES = [
 ];
 
 export function useRealtime(onChange?: () => void) {
-  const supabase = createClient();
+  const onChangeRef = useRef(onChange);
 
   useEffect(() => {
-    const channel = supabase.channel("zen-global-realtime");
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    const channel = supabase.channel(
+      `zen-global-realtime-${crypto.randomUUID()}`
+    );
+
+    console.log("🟡 REALTIME: creating channel");
 
     REALTIME_TABLES.forEach((table) => {
       channel.on(
@@ -28,22 +38,27 @@ export function useRealtime(onChange?: () => void) {
           table,
         },
         (payload) => {
-          console.log("🔥 REALTIME:", {
+          console.log("🔥 REALTIME EVENT:", {
             table,
             event: payload.eventType,
             payload,
           });
 
-          onChange?.();
+          onChangeRef.current?.();
         }
       );
     });
 
-    channel.subscribe((status) => {
+    channel.subscribe((status, error) => {
       console.log("🔥 REALTIME STATUS:", status);
+
+      if (error) {
+        console.error("❌ REALTIME ERROR:", error);
+      }
     });
 
     return () => {
+      console.log("🔴 REALTIME: removing channel");
       supabase.removeChannel(channel);
     };
   }, []);
