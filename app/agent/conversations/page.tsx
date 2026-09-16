@@ -28,6 +28,7 @@ import {
   RotateCcw,
   Zap,
   Inbox,
+  ExternalLink,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -102,6 +103,18 @@ type Source = {
   chunk_id: string;
   similarity_score: number;
   rank: number;
+  title: string;
+  content: string;
+};
+
+type AuditLog = {
+  id: string;
+  conversation_id: string;
+  actor_id: string | null;
+  actor_type: string;
+  action: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
 };
 
 /* ========================================================= */
@@ -157,7 +170,7 @@ function getWaitingScore(createdAt: string) {
 }
 
 /* ========================================================= */
-/* WAITING TIME DISPLAY                                        */
+/* WAITING DISPLAY                                             */
 /* ========================================================= */
 
 function formatWaitingTime(createdAt: string) {
@@ -179,27 +192,18 @@ function formatWaitingTime(createdAt: string) {
 }
 
 /* ========================================================= */
-/* PRIORITY SCORE                                              */
+/* PRIORITY                                                     */
 /* ========================================================= */
-
-/*
- * Priority:
- *
- * 60% urgency
- * 20% sentiment
- * 20% waiting time
- */
 
 function getPriorityScore(
   urgencyScore: number | null,
   sentiment: string | null,
   createdAt: string
 ) {
-  const urgency =
-    Math.min(
-      100,
-      Math.max(0, urgencyScore ?? 0)
-    );
+  const urgency = Math.min(
+    100,
+    Math.max(0, urgencyScore ?? 0)
+  );
 
   const sentimentScore =
     getSentimentScore(sentiment);
@@ -213,10 +217,6 @@ function getPriorityScore(
       0.2 * waitingScore
   );
 }
-
-/* ========================================================= */
-/* PRIORITY LEVEL                                              */
-/* ========================================================= */
 
 function getPriorityLevel(score: number) {
   if (score < 25) {
@@ -233,15 +233,6 @@ function getPriorityLevel(score: number) {
 
   return "urgent";
 }
-
-/* ========================================================= */
-/* PRIORITY COLORS                                             */
-/* ========================================================= */
-
-/*
- * IMPORTANT:
- * Colors are only used for semantic levels.
- */
 
 function getPriorityClasses(priority: string) {
   switch (priority) {
@@ -260,15 +251,14 @@ function getPriorityClasses(priority: string) {
 }
 
 /* ========================================================= */
-/* URGENCY LEVEL                                               */
+/* URGENCY                                                     */
 /* ========================================================= */
 
 function getUrgencyLevel(score: number | null) {
-  const value =
-    Math.min(
-      100,
-      Math.max(0, score ?? 0)
-    );
+  const value = Math.min(
+    100,
+    Math.max(0, score ?? 0)
+  );
 
   if (value <= 25) {
     return "low";
@@ -285,10 +275,6 @@ function getUrgencyLevel(score: number | null) {
   return "critical";
 }
 
-/* ========================================================= */
-/* URGENCY COLORS                                              */
-/* ========================================================= */
-
 function getUrgencyClasses(level: string) {
   switch (level) {
     case "critical":
@@ -303,6 +289,19 @@ function getUrgencyClasses(level: string) {
     default:
       return "border-green-200 bg-green-50 text-green-700";
   }
+}
+
+/* ========================================================= */
+/* SIMILARITY DISPLAY                                          */
+/* ========================================================= */
+
+function formatSimilarity(score: number) {
+  const normalized =
+    score <= 1
+      ? score * 100
+      : score;
+
+  return `${Math.round(normalized * 10) / 10}%`;
 }
 
 /* ========================================================= */
@@ -333,18 +332,26 @@ export default function AgentConversationsPage() {
     useState<Record<string, Order | null>>({});
 
   const [drafts, setDrafts] =
-    useState<Record<
-      string,
-      MessageVersion | null
-    >>({});
+    useState<
+      Record<
+        string,
+        MessageVersion | null
+      >
+    >({});
 
   const [sources, setSources] =
     useState<Record<string, Source[]>>({});
+
+  const [auditLogs, setAuditLogs] =
+    useState<Record<string, AuditLog[]>>({});
 
   const [
     selectedConversationId,
     setSelectedConversationId,
   ] = useState<string | null>(null);
+
+  const [selectedSource, setSelectedSource] =
+    useState<Source | null>(null);
 
   const [search, setSearch] =
     useState("");
@@ -355,8 +362,30 @@ export default function AgentConversationsPage() {
   const [sending, setSending] =
     useState(false);
 
+  const [savingDraft, setSavingDraft] =
+    useState(false);
+
+  const [escalating, setEscalating] =
+    useState(false);
+
   const [editingDraft, setEditingDraft] =
     useState(false);
+
+  /*
+   * IMPORTANT:
+   * We keep the edited text separately from
+   * the saved message_versions row.
+   *
+   * This allows us to compare:
+   *
+   * current saved version
+   *          vs
+   * edited version
+   *
+   * before creating a new version.
+   */
+  const [editingDraftContent, setEditingDraftContent] =
+    useState("");
 
   const [rejectedDrafts, setRejectedDrafts] =
     useState<Record<string, boolean>>({});
@@ -582,7 +611,7 @@ export default function AgentConversationsPage() {
       setMessages(messageMap);
 
       /* --------------------------------------------------- */
-      /* AI DRAFTS                                            */
+      /* AI DRAFT VERSIONS                                    */
       /* --------------------------------------------------- */
 
       const {
@@ -647,7 +676,16 @@ export default function AgentConversationsPage() {
       setDrafts(draftMap);
 
       /* --------------------------------------------------- */
-      /* AI SOURCES                                           */
+      /* AI RESPONSE SOURCES                                  */
+      /*                                                       */
+      /* ai_response_sources                                  */
+      /*        ↓                                              */
+      /* faq_chunks                                            */
+      /*        ↓ article_id                                  */
+      /* faq_articles                                          */
+      /*                                                       */
+      /* chunk.content = retrieved passage                     */
+      /* article.title = FAQ article title                     */
       /* --------------------------------------------------- */
 
       const messageIds =
@@ -681,17 +719,146 @@ export default function AgentConversationsPage() {
 
         if (sourceError) {
           console.error(
-            "Source loading error:",
+            "AI source loading error:",
             sourceError
           );
         }
+
+        const sourceRows =
+          sourceData || [];
+
+        const chunkIds = [
+          ...new Set(
+            sourceRows.map(
+              (source) =>
+                source.chunk_id
+            )
+          ),
+        ];
+
+        const chunkMap: Record<
+          string,
+          {
+            id: string;
+            article_id: string;
+            content: string;
+          }
+        > = {};
+
+        /* ----------------------------------------------- */
+        /* GET FAQ CHUNKS                                   */
+        /* ----------------------------------------------- */
+
+        if (chunkIds.length > 0) {
+          const {
+            data: chunkData,
+            error: chunkError,
+          } = await supabase
+            .from("faq_chunks")
+            .select(
+              `
+              id,
+              article_id,
+              content
+              `
+            )
+            .in(
+              "id",
+              chunkIds
+            );
+
+          if (chunkError) {
+            console.error(
+              "FAQ chunk loading error:",
+              chunkError
+            );
+          }
+
+          (chunkData || []).forEach(
+            (chunk) => {
+              chunkMap[
+                chunk.id
+              ] = {
+                id: chunk.id,
+                article_id:
+                  chunk.article_id,
+                content:
+                  chunk.content ||
+                  "",
+              };
+            }
+          );
+        }
+
+        /* ----------------------------------------------- */
+        /* GET FAQ ARTICLES                                 */
+        /* ----------------------------------------------- */
+
+        const articleIds = [
+          ...new Set(
+            Object.values(
+              chunkMap
+            )
+              .map(
+                (chunk) =>
+                  chunk.article_id
+              )
+              .filter(Boolean)
+          ),
+        ];
+
+        const articleMap: Record<
+          string,
+          string
+        > = {};
+
+        if (
+          articleIds.length > 0
+        ) {
+          const {
+            data: articleData,
+            error: articleError,
+          } = await supabase
+            .from("faq_articles")
+            .select(
+              `
+              id,
+              title
+              `
+            )
+            .in(
+              "id",
+              articleIds
+            );
+
+          if (articleError) {
+            console.error(
+              "FAQ article loading error:",
+              articleError
+            );
+          }
+
+          (articleData || []).forEach(
+            (article) => {
+              articleMap[
+                article.id
+              ] =
+                article.title ||
+                "Untitled FAQ article";
+            }
+          );
+        }
+
+        /* ----------------------------------------------- */
+        /* BUILD SOURCE MAP                                 */
+        /* ----------------------------------------------- */
 
         const sourceMap: Record<
           string,
           Source[]
         > = {};
 
-        (sourceData || []).forEach(
+        sourceRows.forEach(
           (source) => {
             const message =
               (messageData || []).find(
@@ -703,6 +870,11 @@ export default function AgentConversationsPage() {
             if (!message) {
               return;
             }
+
+            const chunk =
+              chunkMap[
+                source.chunk_id
+              ];
 
             const conversationId =
               message.conversation_id;
@@ -719,12 +891,87 @@ export default function AgentConversationsPage() {
 
             sourceMap[
               conversationId
-            ].push(source);
+            ].push({
+              ...source,
+              title:
+                chunk?.article_id
+                  ? articleMap[
+                      chunk.article_id
+                    ] ||
+                    "Untitled FAQ article"
+                  : "Untitled FAQ article",
+              content:
+                chunk?.content ||
+                "Source content unavailable.",
+            });
           }
         );
 
         setSources(sourceMap);
       }
+
+      /* --------------------------------------------------- */
+      /* AUDIT / CONVERSATION LOGS                            */
+      /* --------------------------------------------------- */
+
+      const {
+        data: auditData,
+        error: auditError,
+      } = await supabase
+        .from("conversation_audit_logs")
+        .select(
+          `
+          id,
+          conversation_id,
+          actor_id,
+          actor_type,
+          action,
+          metadata,
+          created_at
+          `
+        )
+        .in(
+          "conversation_id",
+          conversationIds
+        )
+        .order(
+          "created_at",
+          {
+            ascending: false,
+          }
+        );
+
+      if (auditError) {
+        console.error(
+          "Audit log loading error:",
+          auditError
+        );
+      }
+
+      const auditMap: Record<
+        string,
+        AuditLog[]
+      > = {};
+
+      (auditData || []).forEach(
+        (log) => {
+          if (
+            !auditMap[
+              log.conversation_id
+            ]
+          ) {
+            auditMap[
+              log.conversation_id
+            ] = [];
+          }
+
+          auditMap[
+            log.conversation_id
+          ].push(log);
+        }
+      );
+
+      setAuditLogs(auditMap);
 
       /* --------------------------------------------------- */
       /* ORDERS                                               */
@@ -746,7 +993,9 @@ export default function AgentConversationsPage() {
         ),
       ];
 
-      if (orderNumbers.length > 0) {
+      if (
+        orderNumbers.length > 0
+      ) {
         const {
           data: orderData,
           error: orderError,
@@ -799,6 +1048,136 @@ export default function AgentConversationsPage() {
   }
 
   /* ======================================================= */
+  /* AUDIT HELPER                                              */
+  /* ======================================================= */
+
+  async function createAuditLog({
+    conversationId,
+    action,
+    oldContent = null,
+    newContent = null,
+    versionNumber = null,
+    messageId = null,
+  }: {
+    conversationId: string;
+    action: string;
+    oldContent?: string | null;
+    newContent?: string | null;
+    versionNumber?: number | null;
+    messageId?: string | null;
+  }) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      console.error(
+        "Audit log: no authenticated user"
+      );
+      return null;
+    }
+
+    const normalizedAction =
+      action.trim().toUpperCase();
+
+    const allowedActions = [
+      "READ",
+      "MODIFIED",
+      "REJECTED",
+      "SENT",
+      "ESCALATED",
+    ];
+
+    if (
+      !allowedActions.includes(
+        normalizedAction
+      )
+    ) {
+      console.error(
+        "Invalid audit action:",
+        {
+          received: action,
+          normalized:
+            normalizedAction,
+          allowed: allowedActions,
+        }
+      );
+      return null;
+    }
+
+    const metadata = {
+      old_content: oldContent,
+      new_content: newContent,
+      version_number: versionNumber,
+      message_id: messageId,
+    };
+
+    console.log(
+      "Creating audit log:",
+      {
+        conversationId,
+        action: normalizedAction,
+        actorId: user.id,
+      }
+    );
+
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("conversation_audit_logs")
+      .insert({
+        conversation_id:
+          conversationId,
+        actor_id: user.id,
+        actor_type: "agent",
+        action: normalizedAction,
+        metadata,
+      })
+      .select(
+        `
+        id,
+        conversation_id,
+        actor_id,
+        actor_type,
+        action,
+        metadata,
+        created_at
+        `
+      )
+      .single();
+
+    if (error) {
+      console.error(
+        "Audit log insert error:",
+        {
+          error,
+          actionSentToDatabase:
+            normalizedAction,
+          conversationId,
+          userId: user.id,
+        }
+      );
+
+      return null;
+    }
+
+    setAuditLogs(
+      (current) => ({
+        ...current,
+        [conversationId]: [
+          data,
+          ...(current[
+            conversationId
+          ] || []),
+        ],
+      })
+    );
+
+    return data;
+  }
+
+  /* ======================================================= */
   /* OPEN CONVERSATION                                        */
   /* ======================================================= */
 
@@ -811,8 +1190,13 @@ export default function AgentConversationsPage() {
 
     setEditingDraft(false);
 
+    setEditingDraftContent("");
+
+    setSelectedSource(null);
+
     if (
-      conversation.status === "new"
+      conversation.status ===
+      "new"
     ) {
       const { error } =
         await supabase
@@ -847,25 +1231,204 @@ export default function AgentConversationsPage() {
   }
 
   /* ======================================================= */
-  /* REJECT AI DRAFT                                          */
+  /* START EDITING                                             */
   /* ======================================================= */
 
-  function rejectDraft() {
+  function startEditingDraft() {
     if (
       !selectedConversationId
     ) {
       return;
     }
 
+    const draft =
+      drafts[
+        selectedConversationId
+      ];
+
+    if (!draft) {
+      return;
+    }
+
+    /*
+     * Do NOT modify drafts here.
+     *
+     * We edit a separate temporary value.
+     */
+    setEditingDraftContent(
+      draft.content
+    );
+
+    setEditingDraft(true);
+  }
+
+  /* ======================================================= */
+  /* SAVE DRAFT VERSION                                       */
+  /* ======================================================= */
+
+  async function saveDraftEdit() {
+    if (
+      !selectedConversationId
+    ) {
+      return;
+    }
+
+    const conversationId =
+      selectedConversationId;
+
+    const currentDraft =
+      drafts[
+        conversationId
+      ];
+
+    if (!currentDraft) {
+      return;
+    }
+
+    const newContent =
+      editingDraftContent.trim();
+
+    const oldContent =
+      currentDraft.content.trim();
+
+    if (!newContent) {
+      return;
+    }
+
+    /*
+     * Nothing changed.
+     */
+    if (
+      newContent ===
+      oldContent
+    ) {
+      setEditingDraft(false);
+      return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return;
+    }
+
+    setSavingDraft(true);
+
+    try {
+      const nextVersionNumber =
+        currentDraft.version_number +
+        1;
+
+      /* ----------------------------------------------- */
+      /* CREATE NEW MESSAGE VERSION                       */
+      /* ----------------------------------------------- */
+
+      const {
+        data: newVersion,
+        error: versionError,
+      } = await supabase
+        .from("message_versions")
+        .insert({
+          conversation_id:
+            conversationId,
+          message_id: null,
+          version_number:
+            nextVersionNumber,
+          content: newContent,
+          author_type: "agent",
+          author_id: user.id,
+        })
+        .select()
+        .single();
+
+      if (
+        versionError ||
+        !newVersion
+      ) {
+        console.error(
+          "Message version save error:",
+          versionError
+        );
+
+        return;
+      }
+
+      /* ----------------------------------------------- */
+      /* AUDIT THE MODIFICATION                           */
+      /* ----------------------------------------------- */
+
+      await createAuditLog({
+        conversationId,
+        action: "MODIFIED",
+        oldContent:
+          currentDraft.content,
+        newContent,
+        versionNumber:
+          nextVersionNumber,
+        messageId: null,
+      });
+
+      /* ----------------------------------------------- */
+      /* UPDATE CURRENT DRAFT                             */
+      /* ----------------------------------------------- */
+
+      setDrafts(
+        (current) => ({
+          ...current,
+          [conversationId]:
+            newVersion,
+        })
+      );
+
+      setEditingDraftContent(
+        newContent
+      );
+
+      setEditingDraft(false);
+    } finally {
+      setSavingDraft(false);
+    }
+  }
+
+  /* ======================================================= */
+  /* REJECT AI DRAFT                                          */
+  /* ======================================================= */
+
+  async function rejectDraft() {
+    if (
+      !selectedConversationId
+    ) {
+      return;
+    }
+
+    const conversationId =
+      selectedConversationId;
+
+    const draft =
+      drafts[
+        conversationId
+      ];
+
+    await createAuditLog({
+      conversationId,
+      action: "REJECTED",
+      oldContent:
+        draft?.content || null,
+    });
+
     setRejectedDrafts(
       (current) => ({
         ...current,
-        [selectedConversationId]:
+        [conversationId]:
           true,
       })
     );
 
     setEditingDraft(false);
+
+    setEditingDraftContent("");
   }
 
   /* ======================================================= */
@@ -879,9 +1442,12 @@ export default function AgentConversationsPage() {
       return;
     }
 
+    const conversationId =
+      selectedConversationId;
+
     const draft =
       drafts[
-        selectedConversationId
+        conversationId
       ];
 
     if (
@@ -901,9 +1467,9 @@ export default function AgentConversationsPage() {
     setSending(true);
 
     try {
-      /* --------------------------------------------------- */
-      /* 1. CREATE AGENT MESSAGE                             */
-      /* --------------------------------------------------- */
+      /* ----------------------------------------------- */
+      /* CREATE AGENT MESSAGE                             */
+      /* ----------------------------------------------- */
 
       const {
         data: message,
@@ -912,7 +1478,7 @@ export default function AgentConversationsPage() {
         .from("messages")
         .insert({
           conversation_id:
-            selectedConversationId,
+            conversationId,
           sender_type:
             "agent",
           sender_id:
@@ -935,9 +1501,29 @@ export default function AgentConversationsPage() {
         return;
       }
 
-      /* --------------------------------------------------- */
-      /* 2. UPDATE CONVERSATION                               */
-      /* --------------------------------------------------- */
+      /* ----------------------------------------------- */
+      /* AUDIT SEND                                        */
+      /* ----------------------------------------------- */
+
+      await createAuditLog({
+        conversationId,
+        action: "SENT",
+        oldContent:
+          draft.content,
+        newContent:
+          draft.content,
+        versionNumber:
+          draft.version_number,
+        messageId:
+          message.id,
+      });
+
+      /* ----------------------------------------------- */
+      /* UPDATE CONVERSATION                               */
+      /* ----------------------------------------------- */
+
+      const now =
+        new Date().toISOString();
 
       const {
         error: updateError,
@@ -946,16 +1532,14 @@ export default function AgentConversationsPage() {
         .update({
           status:
             "resolved",
-          resolved_at:
-            new Date().toISOString(),
+          resolved_at: now,
           first_response_at:
-            new Date().toISOString(),
-          updated_at:
-            new Date().toISOString(),
+            now,
+          updated_at: now,
         })
         .eq(
           "id",
-          selectedConversationId
+          conversationId
         );
 
       if (updateError) {
@@ -965,30 +1549,115 @@ export default function AgentConversationsPage() {
         );
       }
 
-      /* --------------------------------------------------- */
-      /* 3. REMOVE FROM INBOX                                */
-      /* --------------------------------------------------- */
+      /* ----------------------------------------------- */
+      /* REMOVE FROM OPEN INBOX                            */
+      /* ----------------------------------------------- */
 
       setConversations(
         (current) =>
           current.filter(
             (conversation) =>
               conversation.id !==
-              selectedConversationId
+              conversationId
           )
       );
-
-      /* --------------------------------------------------- */
-      /* 4. RESET UI                                          */
-      /* --------------------------------------------------- */
 
       setSelectedConversationId(
         null
       );
 
       setEditingDraft(false);
+
+      setEditingDraftContent("");
     } finally {
       setSending(false);
+    }
+  }
+
+  /* ======================================================= */
+  /* ESCALATE CONVERSATION                                    */
+  /* ======================================================= */
+
+  async function escalateConversation() {
+    if (
+      !selectedConversationId
+    ) {
+      return;
+    }
+
+    const conversationId =
+      selectedConversationId;
+
+    setEscalating(true);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        return;
+      }
+
+      /* ----------------------------------------------- */
+      /* UPDATE STATUS                                     */
+      /* ----------------------------------------------- */
+
+      const {
+        error: updateError,
+      } = await supabase
+        .from("conversations")
+        .update({
+          status:
+            "escalated",
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq(
+          "id",
+          conversationId
+        );
+
+      if (updateError) {
+        console.error(
+          "Escalation update error:",
+          updateError
+        );
+
+        return;
+      }
+
+      /* ----------------------------------------------- */
+      /* AUDIT ESCALATION                                  */
+      /* ----------------------------------------------- */
+
+      await createAuditLog({
+        conversationId,
+        action: "ESCALATED",
+      });
+
+      /* ----------------------------------------------- */
+      /* REMOVE FROM OPEN INBOX                            */
+      /* ----------------------------------------------- */
+
+      setConversations(
+        (current) =>
+          current.filter(
+            (conversation) =>
+              conversation.id !==
+              conversationId
+          )
+      );
+
+      setSelectedConversationId(
+        null
+      );
+
+      setEditingDraft(false);
+
+      setEditingDraftContent("");
+    } finally {
+      setEscalating(false);
     }
   }
 
@@ -1036,6 +1705,10 @@ export default function AgentConversationsPage() {
             conversation.queue
               ?.toLowerCase() || "";
 
+          const intent =
+            conversation.intent
+              ?.toLowerCase() || "";
+
           return (
             customerName.includes(
               query
@@ -1043,7 +1716,8 @@ export default function AgentConversationsPage() {
             orderNumber.includes(
               query
             ) ||
-            queue.includes(query)
+            queue.includes(query) ||
+            intent.includes(query)
           );
         }
       );
@@ -1104,6 +1778,13 @@ export default function AgentConversationsPage() {
         ] || []
       : [];
 
+  const selectedAuditLogs =
+    selectedConversation
+      ? auditLogs[
+          selectedConversation.id
+        ] || []
+      : [];
+
   const firstName =
     profile?.full_name?.split(
       " "
@@ -1117,27 +1798,19 @@ export default function AgentConversationsPage() {
     return (
       <div className="min-h-screen bg-[#f8f9fa]">
         <div className="flex min-h-screen">
-
           <aside className="hidden w-64 border-r border-gray-200 bg-white md:block" />
 
           <main className="flex-1 p-6 md:p-10">
-
             <div className="mx-auto max-w-7xl">
-
               <div className="h-8 w-64 animate-pulse rounded-lg bg-gray-200" />
 
-              <div className="mt-8 grid gap-4 lg:grid-cols-[360px_1fr]">
-
+              <div className="mt-8 grid gap-4 lg:grid-cols-[240px_1fr]">
                 <div className="h-[700px] animate-pulse rounded-2xl bg-white" />
 
                 <div className="h-[700px] animate-pulse rounded-2xl bg-white" />
-
               </div>
-
             </div>
-
           </main>
-
         </div>
       </div>
     );
@@ -1191,9 +1864,7 @@ export default function AgentConversationsPage() {
 
           <MobileNavItem
             icon={
-              <CircleHelp
-                size={17}
-              />
+              <CircleHelp size={17} />
             }
             label="FAQ"
             onClick={() =>
@@ -1205,9 +1876,7 @@ export default function AgentConversationsPage() {
 
           <MobileNavItem
             icon={
-              <MessageSquare
-                size={17}
-              />
+              <MessageSquare size={17} />
             }
             label="Conversations"
             active
@@ -1220,9 +1889,7 @@ export default function AgentConversationsPage() {
 
           <MobileNavItem
             icon={
-              <AlertTriangle
-                size={17}
-              />
+              <AlertTriangle size={17} />
             }
             label="Escalations"
             onClick={() =>
@@ -1234,9 +1901,7 @@ export default function AgentConversationsPage() {
 
           <MobileNavItem
             icon={
-              <UserCircle
-                size={17}
-              />
+              <UserCircle size={17} />
             }
             label="Profile"
             onClick={() =>
@@ -1247,7 +1912,6 @@ export default function AgentConversationsPage() {
           />
 
         </nav>
-
       </header>
 
       {/* =================================================== */}
@@ -1292,9 +1956,7 @@ export default function AgentConversationsPage() {
 
               <SidebarItem
                 icon={
-                  <CircleHelp
-                    size={18}
-                  />
+                  <CircleHelp size={18} />
                 }
                 label="FAQ"
                 onClick={() =>
@@ -1306,9 +1968,7 @@ export default function AgentConversationsPage() {
 
               <SidebarItem
                 icon={
-                  <MessageSquare
-                    size={18}
-                  />
+                  <MessageSquare size={18} />
                 }
                 label="Conversations"
                 active
@@ -1321,9 +1981,7 @@ export default function AgentConversationsPage() {
 
               <SidebarItem
                 icon={
-                  <AlertTriangle
-                    size={18}
-                  />
+                  <AlertTriangle size={18} />
                 }
                 label="Escalations"
                 onClick={() =>
@@ -1335,9 +1993,7 @@ export default function AgentConversationsPage() {
 
               <SidebarItem
                 icon={
-                  <UserCircle
-                    size={18}
-                  />
+                  <UserCircle size={18} />
                 }
                 label="Profile"
                 onClick={() =>
@@ -1348,7 +2004,6 @@ export default function AgentConversationsPage() {
               />
 
             </div>
-
           </nav>
 
           <div className="border-t border-gray-100 p-4">
@@ -1375,7 +2030,7 @@ export default function AgentConversationsPage() {
 
             {/* HEADER */}
 
-            <div className="mb-6">
+            <div className="mb-5">
 
               <p className="text-sm font-medium text-gray-500">
                 Agent workspace
@@ -1407,14 +2062,13 @@ export default function AgentConversationsPage() {
                 </div>
 
               </div>
-
             </div>
 
             {/* ================================================= */}
             {/* INBOX + CONVERSATION                               */}
             {/* ================================================= */}
 
-            <div className="grid min-h-[720px] gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+            <div className="grid min-h-[720px] gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
 
               {/* ================================================= */}
               {/* INBOX                                              */}
@@ -1422,7 +2076,7 @@ export default function AgentConversationsPage() {
 
               <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
 
-                <div className="border-b border-gray-100 p-4">
+                <div className="border-b border-gray-100 px-4 py-3.5">
 
                   <div className="flex items-center justify-between">
 
@@ -1432,13 +2086,13 @@ export default function AgentConversationsPage() {
                         Inbox
                       </h2>
 
-                      <p className="mt-1 text-xs text-gray-500">
+                      <p className="mt-0.5 text-[11px] text-gray-500">
                         Conversations requiring attention
                       </p>
 
                     </div>
 
-                    <div className="flex h-8 min-w-8 items-center justify-center rounded-full bg-gray-100 px-2 text-xs font-semibold text-gray-700">
+                    <div className="flex h-7 min-w-7 items-center justify-center rounded-full bg-gray-100 px-2 text-[11px] font-semibold text-gray-700">
                       {
                         conversations.length
                       }
@@ -1446,12 +2100,10 @@ export default function AgentConversationsPage() {
 
                   </div>
 
-                  {/* SEARCH */}
-
-                  <div className="relative mt-4">
+                  <div className="relative mt-3">
 
                     <Search
-                      size={16}
+                      size={15}
                       className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                     />
 
@@ -1461,12 +2113,11 @@ export default function AgentConversationsPage() {
                         event
                       ) =>
                         setSearch(
-                          event.target
-                            .value
+                          event.target.value
                         )
                       }
-                      placeholder="Search conversations..."
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-gray-300 focus:bg-white"
+                      placeholder="Search..."
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-xs outline-none transition focus:border-gray-300 focus:bg-white"
                     />
 
                   </div>
@@ -1483,10 +2134,8 @@ export default function AgentConversationsPage() {
 
                       <div>
 
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-gray-50 text-gray-400">
-                          <Inbox
-                            size={20}
-                          />
+                        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-gray-50 text-gray-400">
+                          <Inbox size={19} />
                         </div>
 
                         <p className="mt-3 text-sm font-medium">
@@ -1510,8 +2159,7 @@ export default function AgentConversationsPage() {
 
                           const customer =
                             customers[
-                              conversation
-                                .customer_id
+                              conversation.customer_id
                             ];
 
                           const priorityScore =
@@ -1551,20 +2199,20 @@ export default function AgentConversationsPage() {
                                   conversation
                                 )
                               }
-                              className={`w-full border-l-2 px-4 py-4 text-left transition ${
+                              className={`w-full border-l-2 px-3.5 py-3 text-left transition ${
                                 isSelected
                                   ? "border-blue-600 bg-blue-50/40"
                                   : "border-transparent hover:bg-gray-50"
                               }`}
                             >
 
-                              <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start justify-between gap-2">
 
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex-1">
 
                                   <div className="flex items-center gap-2">
 
-                                    <p className="truncate text-sm font-semibold">
+                                    <p className="truncate text-[13px] font-semibold">
                                       {
                                         customer?.full_name ||
                                         "Unknown customer"
@@ -1573,12 +2221,12 @@ export default function AgentConversationsPage() {
 
                                     {conversation.status ===
                                       "new" && (
-                                      <span className="h-2 w-2 shrink-0 rounded-full bg-blue-600" />
+                                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
                                     )}
 
                                   </div>
 
-                                  <p className="mt-1 text-xs capitalize text-gray-500">
+                                  <p className="mt-0.5 truncate text-[10px] capitalize text-gray-500">
                                     {
                                       conversation.queue
                                     }
@@ -1591,30 +2239,30 @@ export default function AgentConversationsPage() {
                                 </div>
 
                                 <span
-                                  className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold uppercase ${getPriorityClasses(
+                                  className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase ${getPriorityClasses(
                                     priority
                                   )}`}
                                 >
                                   {
                                     priority
-                                  }
+                                  } priority
                                 </span>
 
                               </div>
 
-                              <p className="mt-3 line-clamp-2 text-xs leading-5 text-gray-600">
+                              <p className="mt-2 line-clamp-1 text-[11px] leading-4 text-gray-600">
                                 {
                                   lastMessage?.content ||
                                   "No messages yet"
                                 }
                               </p>
 
-                              <div className="mt-3 flex items-center justify-between text-[10px] text-gray-400">
+                              <div className="mt-2 flex items-center justify-between text-[9px] text-gray-400">
 
                                 <span className="flex items-center gap-1">
 
                                   <Clock3
-                                    size={12}
+                                    size={10}
                                   />
 
                                   {formatWaitingTime(
@@ -1624,7 +2272,6 @@ export default function AgentConversationsPage() {
                                 </span>
 
                                 <span>
-                                  Score{" "}
                                   {
                                     priorityScore
                                   }
@@ -1679,9 +2326,9 @@ export default function AgentConversationsPage() {
                     {/* CONVERSATION HEADER                         */}
                     {/* ========================================= */}
 
-                    <div className="border-b border-gray-100 px-5 py-4">
+                    <div className="border-b border-gray-100 px-5 py-3.5">
 
-                      <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center justify-between gap-4">
 
                         <div className="flex min-w-0 items-center gap-3">
 
@@ -1698,9 +2345,9 @@ export default function AgentConversationsPage() {
                             />
                           </button>
 
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
                             <User
-                              size={19}
+                              size={18}
                             />
                           </div>
 
@@ -1712,7 +2359,7 @@ export default function AgentConversationsPage() {
                               }
                             </h2>
 
-                            <p className="truncate text-xs text-gray-500">
+                            <p className="truncate text-[11px] text-gray-500">
                               {
                                 selectedCustomer?.email ||
                                 "No email"
@@ -1741,13 +2388,13 @@ export default function AgentConversationsPage() {
 
                             return (
                               <span
-                                className={`rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase ${getPriorityClasses(
+                                className={`rounded-full border px-2.5 py-1 text-[9px] font-semibold uppercase ${getPriorityClasses(
                                   priority
                                 )}`}
                               >
                                 {
                                   priority
-                                }{" "}
+                                } priority{" "}
                                 ·{" "}
                                 {
                                   score
@@ -1758,7 +2405,7 @@ export default function AgentConversationsPage() {
 
                           })()}
 
-                          <span className="rounded-full bg-gray-100 px-2.5 py-1.5 text-[10px] font-medium capitalize text-gray-600">
+                          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[9px] font-medium capitalize text-gray-600">
                             {
                               selectedConversation.queue
                             }
@@ -1767,7 +2414,6 @@ export default function AgentConversationsPage() {
                         </div>
 
                       </div>
-
                     </div>
 
                     {/* ========================================= */}
@@ -1776,23 +2422,21 @@ export default function AgentConversationsPage() {
 
                     <div className="flex-1 overflow-y-auto">
 
-                      <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_280px]">
+                      <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_265px]">
 
                         {/* ===================================== */}
-                        {/* MAIN CONVERSATION                       */}
+                        {/* MAIN                                    */}
                         {/* ===================================== */}
 
                         <div className="p-5">
 
                           {/* CUSTOMER / ORDER */}
 
-                          <div className="mb-6 grid gap-3 sm:grid-cols-2">
+                          <div className="mb-5 grid gap-3 sm:grid-cols-2">
 
                             <InfoCard
                               icon={
-                                <User
-                                  size={16}
-                                />
+                                <User size={15} />
                               }
                               label="Customer"
                               value={
@@ -1808,9 +2452,7 @@ export default function AgentConversationsPage() {
 
                             <InfoCard
                               icon={
-                                <Package
-                                  size={16}
-                                />
+                                <Package size={15} />
                               }
                               label="Order"
                               value={
@@ -1831,9 +2473,9 @@ export default function AgentConversationsPage() {
                           {/* QUALIFICATION                       */}
                           {/* ================================= */}
 
-                          <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4">
+                          <div className="mb-5 rounded-2xl border border-gray-200 bg-white p-4">
 
-                            <div className="mb-4 flex items-center justify-between">
+                            <div className="mb-3 flex items-center justify-between">
 
                               <div>
 
@@ -1841,20 +2483,20 @@ export default function AgentConversationsPage() {
                                   Conversation analysis
                                 </h3>
 
-                                <p className="mt-1 text-xs text-gray-500">
+                                <p className="mt-0.5 text-[11px] text-gray-500">
                                   Qualification generated from the customer message
                                 </p>
 
                               </div>
 
                               <Sparkles
-                                size={18}
+                                size={17}
                                 className="text-gray-400"
                               />
 
                             </div>
 
-                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-[1.15fr_1.15fr_1fr_1.25fr]">
 
                               {/* URGENCY */}
 
@@ -1871,38 +2513,36 @@ export default function AgentConversationsPage() {
 
                                 return (
                                   <div
-                                    className={`rounded-xl border p-3 ${getUrgencyClasses(
+                                    className={`min-h-[128px] rounded-xl border p-4 ${getUrgencyClasses(
                                       urgencyLevel
                                     )}`}
                                   >
 
                                     <div className="flex items-center justify-between">
 
-                                      <span className="text-[10px] font-semibold uppercase tracking-wider opacity-70">
+                                      <span className="text-[9px] font-semibold uppercase tracking-wider opacity-70">
                                         Urgency
                                       </span>
 
-                                      <Zap
-                                        size={15}
-                                      />
+                                      <Zap size={14} />
 
                                     </div>
 
-                                    <div className="mt-2 flex items-baseline gap-1">
+                                    <div className="mt-1.5 flex items-baseline gap-1">
 
-                                      <span className="text-2xl font-bold">
+                                      <span className="text-xl font-bold">
                                         {
                                           urgencyScore
                                         }
                                       </span>
 
-                                      <span className="text-xs opacity-60">
-                                        / 100
+                                      <span className="text-[10px] opacity-60">
+                                        /100
                                       </span>
 
                                     </div>
 
-                                    <p className="mt-1 text-xs font-semibold capitalize">
+                                    <p className="mt-0.5 text-[11px] font-semibold capitalize">
                                       {
                                         urgencyLevel
                                       }
@@ -1931,41 +2571,41 @@ export default function AgentConversationsPage() {
 
                                 return (
                                   <div
-                                    className={`rounded-xl border p-3 ${getPriorityClasses(
+                                    className={`min-h-[128px] rounded-xl border p-4 ${getPriorityClasses(
                                       priority
                                     )}`}
                                   >
 
                                     <div className="flex items-center justify-between">
 
-                                      <span className="text-[10px] font-semibold uppercase tracking-wider opacity-70">
+                                      <span className="text-[9px] font-semibold uppercase tracking-wider opacity-70">
                                         Priority
                                       </span>
 
                                       <AlertTriangle
-                                        size={15}
+                                        size={14}
                                       />
 
                                     </div>
 
-                                    <div className="mt-2 flex items-baseline gap-1">
+                                    <div className="mt-1.5 flex items-baseline gap-1">
 
-                                      <span className="text-2xl font-bold">
+                                      <span className="text-xl font-bold">
                                         {
                                           priorityScore
                                         }
                                       </span>
 
-                                      <span className="text-xs opacity-60">
-                                        / 100
+                                      <span className="text-[10px] opacity-60">
+                                        /100
                                       </span>
 
                                     </div>
 
-                                    <p className="mt-1 text-xs font-semibold capitalize">
+                                    <p className="mt-0.5 text-[11px] font-semibold capitalize">
                                       {
                                         priority
-                                      }
+                                      } priority
                                     </p>
 
                                   </div>
@@ -1979,25 +2619,25 @@ export default function AgentConversationsPage() {
 
                                 <div className="flex items-center justify-between">
 
-                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                                  <span className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
                                     Waiting
                                   </span>
 
                                   <Clock3
-                                    size={15}
+                                    size={14}
                                     className="text-gray-400"
                                   />
 
                                 </div>
 
-                                <p className="mt-2 text-2xl font-bold text-gray-900">
+                                <p className="mt-1.5 text-xl font-bold text-gray-900">
                                   {formatWaitingTime(
                                     selectedConversation.created_at
                                   )}
                                 </p>
 
-                                <p className="mt-1 text-xs text-gray-500">
-                                  Since conversation started
+                                <p className="mt-0.5 text-[10px] text-gray-500">
+                                  Since started
                                 </p>
 
                               </div>
@@ -2008,25 +2648,26 @@ export default function AgentConversationsPage() {
 
                                 <div className="flex items-center justify-between">
 
-                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                                  <span className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
                                     Intent
                                   </span>
 
                                   <MessageSquare
-                                    size={15}
+                                    size={14}
                                     className="text-gray-400"
                                   />
 
                                 </div>
 
-                                <p className="mt-2 text-sm font-semibold capitalize text-gray-900">
+                                <p className="mt-1.5 line-clamp-2 text-sm font-semibold capitalize leading-5 text-gray-900">
                                   {
                                     selectedConversation.intent ||
                                     "Unknown"
                                   }
                                 </p>
 
-                                <p className="mt-1 text-xs capitalize text-gray-500">
+                                <p className="mt-1 text-[10px] text-gray-500">
+                                  Language: {" "}
                                   {
                                     selectedConversation.language ||
                                     "Unknown language"
@@ -2036,7 +2677,6 @@ export default function AgentConversationsPage() {
                               </div>
 
                             </div>
-
                           </div>
 
                           {/* ================================= */}
@@ -2045,13 +2685,13 @@ export default function AgentConversationsPage() {
 
                           <div>
 
-                            <div className="mb-3 flex items-center justify-between">
+                            <div className="mb-2.5 flex items-center justify-between">
 
-                              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                              <h3 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                                 Conversation
                               </h3>
 
-                              <span className="text-[10px] text-gray-400">
+                              <span className="text-[9px] text-gray-400">
                                 {
                                   selectedMessages.length
                                 }{" "}
@@ -2060,7 +2700,7 @@ export default function AgentConversationsPage() {
 
                             </div>
 
-                            <div className="space-y-3">
+                            <div className="space-y-2.5">
 
                               {selectedMessages.map(
                                 (
@@ -2085,7 +2725,7 @@ export default function AgentConversationsPage() {
                           {/* AI RESPONSE                        */}
                           {/* ================================= */}
 
-                          <div className="mt-8">
+                          <div className="mt-7">
 
                             <div className="mb-3 flex items-center justify-between">
 
@@ -2093,9 +2733,9 @@ export default function AgentConversationsPage() {
 
                                 <div className="flex items-center gap-2">
 
-                                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900 text-white">
+                                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-900 text-white">
                                     <Sparkles
-                                      size={15}
+                                      size={14}
                                     />
                                   </div>
 
@@ -2105,14 +2745,14 @@ export default function AgentConversationsPage() {
 
                                 </div>
 
-                                <p className="mt-2 text-xs text-gray-500">
-                                  Review the suggested response before sending it to the customer.
+                                <p className="mt-1.5 text-[11px] text-gray-500">
+                                  Review the suggested response before sending it.
                                 </p>
 
                               </div>
 
                               {selectedDraft && (
-                                <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[10px] font-semibold text-gray-600">
+                                <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[9px] font-semibold text-gray-600">
                                   Draft v
                                   {
                                     selectedDraft.version_number
@@ -2128,23 +2768,23 @@ export default function AgentConversationsPage() {
 
                                 {/* AI HEADER */}
 
-                                <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-5 py-3">
+                                <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-4 py-2.5">
 
                                   <div className="flex items-center gap-2">
 
                                     <Sparkles
-                                      size={15}
+                                      size={14}
                                       className="text-gray-500"
                                     />
 
-                                    <span className="text-xs font-medium text-gray-600">
+                                    <span className="text-[11px] font-medium text-gray-600">
                                       Suggested reply
                                     </span>
 
                                   </div>
 
                                   {editingDraft && (
-                                    <span className="text-[10px] font-medium text-gray-400">
+                                    <span className="text-[9px] font-medium text-gray-400">
                                       Editing mode
                                     </span>
                                   )}
@@ -2153,51 +2793,28 @@ export default function AgentConversationsPage() {
 
                                 {/* AI MESSAGE */}
 
-                                <div className="p-5">
+                                <div className="p-4">
 
                                   <textarea
                                     value={
-                                      drafts[
-                                        selectedConversation
-                                          .id
-                                      ]?.content ||
-                                      ""
+                                      editingDraft
+                                        ? editingDraftContent
+                                        : selectedDraft.content
                                     }
                                     disabled={
                                       !editingDraft
                                     }
                                     onChange={(
                                       event
-                                    ) => {
-
-                                      const value =
+                                    ) =>
+                                      setEditingDraftContent(
                                         event
                                           .target
-                                          .value;
-
-                                      setDrafts(
-                                        (
-                                          current
-                                        ) => ({
-                                          ...current,
-                                          [selectedConversation.id]:
-                                            current[
-                                              selectedConversation.id
-                                            ]
-                                              ? {
-                                                  ...current[
-                                                    selectedConversation.id
-                                                  ]!,
-                                                  content:
-                                                    value,
-                                                }
-                                              : null,
-                                        })
-                                      );
-
-                                    }}
-                                    rows={10}
-                                    className={`min-h-[240px] w-full resize-y rounded-xl border p-5 text-[16px] leading-7 text-gray-800 outline-none transition ${
+                                          .value
+                                      )
+                                    }
+                                    rows={8}
+                                    className={`min-h-[210px] w-full resize-y rounded-xl border p-4 text-[14px] leading-6 text-gray-800 outline-none transition ${
                                       editingDraft
                                         ? "border-gray-300 bg-white focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
                                         : "border-transparent bg-gray-50/60"
@@ -2208,49 +2825,51 @@ export default function AgentConversationsPage() {
 
                                 {/* ACTIONS */}
 
-                                <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
 
-                                  <p className="text-[11px] text-gray-400">
+                                  <p className="text-[10px] text-gray-400">
                                     AI-generated content must be reviewed by an agent.
                                   </p>
 
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex flex-wrap items-center gap-2">
 
-                                    {/* EDIT */}
+                                    {/* EDIT / DONE */}
 
-                                    <button
-                                      onClick={() =>
-                                        setEditingDraft(
-                                          (
-                                            current
-                                          ) =>
-                                            !current
-                                        )
-                                      }
-                                      className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
-                                    >
+                                    {editingDraft ? (
+                                      <button
+                                        onClick={
+                                          saveDraftEdit
+                                        }
+                                        disabled={
+                                          savingDraft
+                                        }
+                                        className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                                      >
+                                        <Check
+                                          size={
+                                            14
+                                          }
+                                        />
 
-                                      {editingDraft ? (
-                                        <>
-                                          <Check
-                                            size={
-                                              15
-                                            }
-                                          />
-                                          Done
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Pencil
-                                            size={
-                                              15
-                                            }
-                                          />
-                                          Edit
-                                        </>
-                                      )}
-
-                                    </button>
+                                        {savingDraft
+                                          ? "Saving..."
+                                          : "Done"}
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={
+                                          startEditingDraft
+                                        }
+                                        className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+                                      >
+                                        <Pencil
+                                          size={
+                                            14
+                                          }
+                                        />
+                                        Edit
+                                      </button>
+                                    )}
 
                                     {/* REJECT */}
 
@@ -2258,11 +2877,15 @@ export default function AgentConversationsPage() {
                                       onClick={
                                         rejectDraft
                                       }
-                                      className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+                                      disabled={
+                                        savingDraft ||
+                                        sending
+                                      }
+                                      className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 disabled:opacity-50"
                                     >
                                       <RotateCcw
                                         size={
-                                          15
+                                          14
                                         }
                                       />
                                       Reject
@@ -2276,21 +2899,21 @@ export default function AgentConversationsPage() {
                                       }
                                       disabled={
                                         sending ||
+                                        savingDraft ||
+                                        editingDraft ||
                                         !selectedDraft
                                       }
-                                      className="flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+                                      className="flex items-center gap-1.5 rounded-lg bg-gray-900 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
                                     >
-
                                       <Send
                                         size={
-                                          15
+                                          14
                                         }
                                       />
 
                                       {sending
                                         ? "Sending..."
                                         : "Send"}
-
                                     </button>
 
                                   </div>
@@ -2301,13 +2924,11 @@ export default function AgentConversationsPage() {
 
                             ) : (
 
-                              <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
+                              <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-7 text-center">
 
-                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-white text-gray-400 shadow-sm">
+                                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-white text-gray-400 shadow-sm">
                                   <FileText
-                                    size={
-                                      20
-                                    }
+                                    size={19}
                                   />
                                 </div>
 
@@ -2315,7 +2936,7 @@ export default function AgentConversationsPage() {
                                   No AI draft available
                                 </p>
 
-                                <p className="mt-1 text-xs text-gray-400">
+                                <p className="mt-1 text-[11px] text-gray-400">
                                   The AI response may still be processing or was rejected.
                                 </p>
 
@@ -2331,23 +2952,23 @@ export default function AgentConversationsPage() {
                         {/* RIGHT INFO PANEL                       */}
                         {/* ===================================== */}
 
-                        <aside className="border-t border-gray-100 bg-gray-50/50 p-5 xl:border-l xl:border-t-0">
+                        <aside className="border-t border-gray-100 bg-gray-50/50 p-4 xl:border-l xl:border-t-0">
 
                           {/* WAITING */}
 
                           <div>
 
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
                               Waiting time
                             </p>
 
-                            <p className="mt-2 text-2xl font-semibold">
+                            <p className="mt-1.5 text-xl font-semibold">
                               {formatWaitingTime(
                                 selectedConversation.created_at
                               )}
                             </p>
 
-                            <p className="mt-1 text-xs text-gray-400">
+                            <p className="mt-0.5 text-[10px] text-gray-400">
                               Since conversation started
                             </p>
 
@@ -2355,78 +2976,120 @@ export default function AgentConversationsPage() {
 
                           {/* SOURCES */}
 
-                          <div className="mt-8">
+                          <div className="mt-6">
 
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                              AI sources
-                            </p>
+                            <div className="flex items-center justify-between">
+
+                              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+                                AI sources
+                              </p>
+
+                              {selectedSources.length >
+                                0 && (
+                                <span className="text-[9px] text-gray-400">
+                                  {
+                                    selectedSources.length
+                                  }{" "}
+                                  retrieved
+                                </span>
+                              )}
+
+                            </div>
 
                             {selectedSources.length ===
                             0 ? (
 
-                              <p className="mt-3 text-xs text-gray-500">
+                              <p className="mt-2 text-[10px] text-gray-500">
                                 No sources available.
                               </p>
 
                             ) : (
 
-                              <div className="mt-3 space-y-2">
+                              <div className="mt-2 space-y-1.5">
 
                                 {selectedSources.map(
                                   (
                                     source
                                   ) => (
-                                    <div
+                                    <button
                                       key={
                                         source.id
                                       }
-                                      className="rounded-lg border border-gray-200 bg-white p-3"
+                                      type="button"
+                                      onClick={() =>
+                                        setSelectedSource(
+                                          source
+                                        )
+                                      }
+                                      className="group w-full rounded-lg border border-gray-200 bg-white p-3 text-left transition hover:border-gray-300 hover:bg-gray-50"
                                     >
 
-                                      <div className="flex items-center justify-between">
+                                      <div className="flex items-start gap-2">
 
-                                        <p className="text-xs font-medium">
-                                          Source #
+                                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-100 text-[9px] font-bold text-gray-500">
+                                          #
                                           {
                                             source.rank
                                           }
-                                        </p>
+                                        </div>
 
-                                        <span className="text-[10px] font-semibold text-gray-400">
-                                          {Math.round(
-                                            source.similarity_score *
-                                              100
-                                          )}
-                                          %
-                                        </span>
+                                        <div className="min-w-0 flex-1">
+
+                                          <div className="flex items-start justify-between gap-2">
+
+                                            <p className="line-clamp-2 text-[11px] font-semibold text-gray-800">
+                                              {
+                                                source.title
+                                              }
+                                            </p>
+
+                                            <span className="shrink-0 text-[9px] font-semibold text-gray-500">
+                                              {formatSimilarity(
+                                                source.similarity_score
+                                              )}
+                                            </span>
+
+                                          </div>
+
+                                          <p className="mt-1 line-clamp-3 text-[10px] leading-4 text-gray-500">
+                                            {
+                                              source.content
+                                            }
+                                          </p>
+
+                                          <div className="mt-1.5 flex items-center gap-1 text-[8px] font-medium text-gray-400 group-hover:text-gray-600">
+                                            <ExternalLink
+                                              size={
+                                                9
+                                              }
+                                            />
+                                            View source
+                                          </div>
+
+                                        </div>
 
                                       </div>
 
-                                      <p className="mt-1 text-[10px] text-gray-500">
-                                        Retrieved FAQ passage
-                                      </p>
-
-                                    </div>
+                                    </button>
                                   )
                                 )}
 
                               </div>
-
                             )}
 
                           </div>
 
                           {/* ORDER */}
 
-                          <div className="mt-8">
+                          <div className="mt-6">
 
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
                               Order information
                             </p>
 
                             {selectedOrder ? (
 
-                              <div className="mt-3 space-y-2 text-xs">
+                              <div className="mt-2 space-y-2 text-[10px]">
 
                                 <DetailRow
                                   label="Status"
@@ -2454,7 +3117,7 @@ export default function AgentConversationsPage() {
 
                             ) : (
 
-                              <p className="mt-3 text-xs text-gray-500">
+                              <p className="mt-2 text-[10px] leading-4 text-gray-500">
                                 No order information linked to this conversation.
                               </p>
 
@@ -2464,18 +3127,85 @@ export default function AgentConversationsPage() {
 
                           {/* SENTIMENT */}
 
-                          <div className="mt-8">
+                          <div className="mt-6">
 
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
                               Sentiment
                             </p>
 
-                            <p className="mt-2 text-sm font-semibold capitalize">
+                            <p className="mt-1.5 text-sm font-semibold capitalize">
                               {
                                 selectedConversation.sentiment ||
                                 "Unknown"
                               }
                             </p>
+
+                          </div>
+
+                          {/* AUDIT SUMMARY */}
+
+                          <div className="mt-6 border-t border-gray-200 pt-5">
+
+                            <div className="flex items-center justify-between">
+
+                              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+                                Activity
+                              </p>
+
+                              <span className="text-[9px] text-gray-400">
+                                {
+                                  selectedAuditLogs.length
+                                }
+                              </span>
+
+                            </div>
+
+                            {selectedAuditLogs.length >
+                            0 ? (
+
+                              <div className="mt-2 space-y-2">
+
+                                {selectedAuditLogs
+                                  .slice(
+                                    0,
+                                    4
+                                  )
+                                  .map(
+                                    (
+                                      log
+                                    ) => (
+                                      <div
+                                        key={
+                                          log.id
+                                        }
+                                        className="rounded-lg border border-gray-200 bg-white p-2"
+                                      >
+
+                                        <p className="text-[9px] font-medium text-gray-700">
+                                          {formatAuditAction(
+                                            log.action
+                                          )}
+                                        </p>
+
+                                        <p className="mt-0.5 text-[8px] text-gray-400">
+                                          {new Date(
+                                            log.created_at
+                                          ).toLocaleString()}
+                                        </p>
+
+                                      </div>
+                                    )
+                                  )}
+
+                              </div>
+
+                            ) : (
+
+                              <p className="mt-2 text-[10px] text-gray-500">
+                                No activity recorded yet.
+                              </p>
+
+                            )}
 
                           </div>
 
@@ -2486,30 +3216,66 @@ export default function AgentConversationsPage() {
                     </div>
 
                     {/* ========================================= */}
-                    {/* BOTTOM BAR                                  */}
+                    {/* BOTTOM ACTION BAR                           */}
                     {/* ========================================= */}
 
                     <div className="border-t border-gray-200 bg-white px-5 py-3">
 
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
 
-                        <p className="text-[11px] text-gray-400">
+                        <p className="text-[10px] text-gray-400">
                           Review the AI suggestion before sending.
                         </p>
 
-                        <button
-                          onClick={() =>
-                            setSelectedConversationId(
-                              null
-                            )
-                          }
-                          className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
-                        >
-                          <X
-                            size={14}
-                          />
-                          Close
-                        </button>
+                        <div className="flex items-center gap-2">
+
+                          {/* ESCALATE */}
+
+                          <button
+                            onClick={
+                              escalateConversation
+                            }
+                            disabled={
+                              escalating ||
+                              sending
+                            }
+                            className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <AlertTriangle
+                              size={14}
+                            />
+
+                            {escalating
+                              ? "Escalating..."
+                              : "Escalate"}
+                          </button>
+
+                          {/* CLOSE */}
+
+                          <button
+                            onClick={() => {
+                              setSelectedConversationId(
+                                null
+                              );
+                              setSelectedSource(
+                                null
+                              );
+                              setEditingDraft(
+                                false
+                              );
+                              setEditingDraftContent(
+                                ""
+                              );
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
+                          >
+                            <X
+                              size={14}
+                            />
+                            Close
+                          </button>
+
+                        </div>
 
                       </div>
 
@@ -2528,8 +3294,204 @@ export default function AgentConversationsPage() {
 
       </div>
 
+      {/* =================================================== */}
+      {/* SOURCE DETAIL MODAL                                  */}
+      {/* =================================================== */}
+
+      {selectedSource && (
+        <SourceModal
+          source={selectedSource}
+          onClose={() =>
+            setSelectedSource(
+              null
+            )
+          }
+        />
+      )}
+
     </div>
   );
+}
+
+/* ========================================================= */
+/* SOURCE MODAL                                                */
+/* ========================================================= */
+
+function SourceModal({
+  source,
+  onClose,
+}: {
+  source: Source;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+      onClick={onClose}
+    >
+
+      <div
+        className="max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        onClick={(event) =>
+          event.stopPropagation()
+        }
+      >
+
+        {/* HEADER */}
+
+        <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
+
+          <div className="flex min-w-0 items-start gap-3">
+
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
+              <FileText
+                size={17}
+              />
+            </div>
+
+            <div className="min-w-0">
+
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+                Retrieved FAQ source #{source.rank}
+              </p>
+
+              <h2 className="mt-1 text-base font-semibold leading-5 text-gray-900">
+                {
+                  source.title
+                }
+              </h2>
+
+            </div>
+
+          </div>
+
+          <button
+            onClick={onClose}
+            className="ml-4 rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+          >
+            <X size={18} />
+          </button>
+
+        </div>
+
+        {/* CONTENT */}
+
+        <div className="max-h-[calc(85vh-80px)] overflow-y-auto p-5">
+
+          {/* METRICS */}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+                Rank
+              </p>
+
+              <p className="mt-1 text-xl font-bold text-gray-900">
+                #{source.rank}
+              </p>
+
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+                Similarity
+              </p>
+
+              <p className="mt-1 text-xl font-bold text-gray-900">
+                {formatSimilarity(
+                  source.similarity_score
+                )}
+              </p>
+
+            </div>
+
+          </div>
+
+          {/* ARTICLE TITLE */}
+
+          <div className="mt-5">
+
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+              FAQ article
+            </p>
+
+            <div className="mt-2 rounded-xl border border-gray-200 bg-white p-4">
+
+              <p className="text-sm font-semibold leading-6 text-gray-900">
+                {
+                  source.title
+                }
+              </p>
+
+            </div>
+
+          </div>
+
+          {/* CHUNK CONTENT */}
+
+          <div className="mt-5">
+
+            <div className="flex items-center justify-between">
+
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+                Retrieved chunk
+              </p>
+
+              <span className="text-[9px] text-gray-400">
+                FAQ chunk content
+              </span>
+
+            </div>
+
+            <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 p-4">
+
+              <p className="whitespace-pre-wrap text-sm leading-7 text-gray-700">
+                {
+                  source.content
+                }
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+/* ========================================================= */
+/* AUDIT ACTION DISPLAY                                        */
+/* ========================================================= */
+
+function formatAuditAction(
+  action: string
+) {
+  switch (action) {
+    case "READ":
+      return "Conversation viewed";
+
+    case "MODIFIED":
+      return "AI draft modified";
+
+    case "REJECTED":
+      return "AI draft rejected";
+
+    case "SENT":
+      return "Response sent";
+
+    case "ESCALATED":
+      return "Conversation escalated";
+
+    default:
+      return action;
+  }
 }
 
 /* ========================================================= */
@@ -2559,7 +3521,7 @@ function MessageBubble({
     >
 
       <div
-        className={`max-w-[85%] rounded-xl px-4 py-3 ${
+        className={`max-w-[85%] rounded-xl px-3.5 py-2.5 ${
           isCustomer
             ? "bg-gray-100 text-gray-800"
             : isAI
@@ -2570,7 +3532,7 @@ function MessageBubble({
 
         <div className="mb-1 flex items-center gap-2">
 
-          <span className="text-[10px] font-semibold uppercase tracking-wider opacity-60">
+          <span className="text-[9px] font-semibold uppercase tracking-wider opacity-60">
             {isCustomer
               ? "Customer"
               : isAI
@@ -2578,7 +3540,7 @@ function MessageBubble({
               : "Agent"}
           </span>
 
-          <span className="text-[10px] opacity-50">
+          <span className="text-[9px] opacity-50">
             {new Date(
               message.created_at
             ).toLocaleTimeString(
@@ -2592,7 +3554,7 @@ function MessageBubble({
 
         </div>
 
-        <p className="whitespace-pre-wrap text-sm leading-6">
+        <p className="whitespace-pre-wrap text-[13px] leading-5.5">
           {
             message.content
           }
@@ -2620,24 +3582,24 @@ function InfoCard({
   secondary?: string;
 }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
+    <div className="rounded-xl border border-gray-200 bg-white p-3.5">
 
       <div className="flex items-center gap-2 text-gray-400">
 
         {icon}
 
-        <span className="text-[10px] font-semibold uppercase tracking-wider">
+        <span className="text-[9px] font-semibold uppercase tracking-wider">
           {label}
         </span>
 
       </div>
 
-      <p className="mt-2 text-sm font-semibold">
+      <p className="mt-1.5 truncate text-sm font-semibold">
         {value}
       </p>
 
       {secondary && (
-        <p className="mt-1 text-xs capitalize text-gray-500">
+        <p className="mt-0.5 truncate text-[10px] capitalize text-gray-500">
           {secondary}
         </p>
       )}
@@ -2664,7 +3626,7 @@ function DetailRow({
         {label}
       </span>
 
-      <span className="text-right font-medium text-gray-700">
+      <span className="max-w-[65%] truncate text-right font-medium text-gray-700">
         {value}
       </span>
 
@@ -2744,7 +3706,6 @@ function MobileNavItem({
       <span>
         {label}
       </span>
-
     </button>
   );
 }
