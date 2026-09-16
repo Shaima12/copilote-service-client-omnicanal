@@ -3,6 +3,18 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import {
+  AlertCircle,
+  ClipboardList,
+  Home,
+  LogOut,
+  MessageCircle,
+  Package,
+  RefreshCw,
+  ShoppingBag,
+  UserCircle,
+  UserRound,
+} from "lucide-react";
 
 type Order = {
   id: string;
@@ -153,20 +165,20 @@ console.log("==================================");
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f8f7] text-gray-900">
+    <main className="min-h-screen bg-[#f7f8f5] text-[#14231f]">
 
       {/* ================= MOBILE HEADER ================= */}
-      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white lg:hidden">
+      <header className="sticky top-0 z-40 border-b border-[#e4eae5] bg-white lg:hidden">
         <div className="flex items-center justify-between px-4 py-4">
 
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-black text-sm font-bold text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#14231f] text-sm font-bold text-[#f6c96e]">
               Z
             </div>
 
             <div>
-              <p className="text-sm font-semibold">ZEN</p>
-              <p className="text-[11px] text-gray-400">
+              <p className="text-sm font-bold">ZEN</p>
+              <p className="text-[11px] text-[#8a9890]">
                 Customer Portal
               </p>
             </div>
@@ -174,9 +186,10 @@ console.log("==================================");
 
           <button
             onClick={handleSignOut}
-            className="rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100"
+            className="rounded-lg p-2 text-[#718078] transition hover:bg-[#f0f3f0]"
+            aria-label="Sign out"
           >
-            Sign out
+            <LogOut size={18} />
           </button>
         </div>
 
@@ -185,30 +198,30 @@ console.log("==================================");
 
           <a
             href="/client/orders"
-            className="shrink-0 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-900"
+            className="flex shrink-0 items-center gap-2 rounded-lg bg-[#edf6ee] px-4 py-2 text-sm font-semibold text-[#52705d]"
           >
-            🛍️ Orders
+            <ShoppingBag size={16} /> Orders
           </a>
 
           <a
             href="/client/support"
-            className="shrink-0 rounded-lg px-4 py-2 text-sm text-gray-500 hover:bg-gray-50"
+            className="flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm text-[#718078] hover:bg-[#f0f3f0]"
           >
-            💬 Support
+            <MessageCircle size={16} /> Support
           </a>
 
           <a
             href="/client/requests"
-            className="shrink-0 rounded-lg px-4 py-2 text-sm text-gray-500 hover:bg-gray-50"
+            className="flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm text-[#718078] hover:bg-[#f0f3f0]"
           >
-            📋 Requests
+            <ClipboardList size={16} /> Requests
           </a>
 
           <a
             href="/client/profile"
-            className="shrink-0 rounded-lg px-4 py-2 text-sm text-gray-500 hover:bg-gray-50"
+            className="flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm text-[#718078] hover:bg-[#f0f3f0]"
           >
-            👤 Profile
+            <UserCircle size={16} /> Profile
           </a>
 
         </nav>
@@ -217,22 +230,22 @@ console.log("==================================");
       <div className="flex min-h-screen">
 
         {/* ================= DESKTOP SIDEBAR ================= */}
-        <aside className="fixed left-0 top-0 hidden h-screen w-64 flex-col border-r border-gray-200 bg-white lg:flex">
+        <aside className="fixed left-0 top-0 hidden h-screen w-64 flex-col border-r border-[#e4eae5] bg-white lg:flex">
 
           {/* Logo */}
-          <div className="border-b border-gray-100 px-6 py-6">
+          <div className="border-b border-[#edf0ed] px-6 py-6">
             <div className="flex items-center gap-3">
 
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black text-sm font-bold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#14231f] text-sm font-bold text-[#f6c96e]">
                 Z
               </div>
 
               <div>
-                <p className="font-semibold tracking-tight">
+                <p className="font-bold tracking-tight">
                   ZEN
                 </p>
 
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-[#8a9890]">
                   Customer Portal
                 </p>
               </div>
@@ -243,50 +256,50 @@ console.log("==================================");
           {/* Navigation */}
           <nav className="flex-1 px-3 py-6">
 
-            <p className="mb-3 px-4 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <p className="mb-3 px-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[#8a9890]">
               My account
             </p>
 
             <a
               href="/client/orders"
-              className="mb-1 flex items-center gap-3 rounded-xl bg-gray-100 px-4 py-3 text-sm font-medium text-gray-900"
+              className="mb-1 flex items-center gap-3 rounded-xl bg-[#edf6ee] px-4 py-3 text-sm font-semibold text-[#52705d]"
             >
-              <span>🛍️</span>
+              <ShoppingBag size={18} />
               <span>Orders</span>
             </a>
 
             <a
               href="/client/support"
-              className="mb-1 flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
+              className="mb-1 flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-[#718078] transition hover:bg-[#f7f8f5] hover:text-[#14231f]"
             >
-              <span>💬</span>
+              <MessageCircle size={18} />
               <span>Customer Support</span>
             </a>
 
             <a
               href="/client/requests"
-              className="mb-1 flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
+              className="mb-1 flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-[#718078] transition hover:bg-[#f7f8f5] hover:text-[#14231f]"
             >
-              <span>📋</span>
+              <ClipboardList size={18} />
               <span>Requests</span>
             </a>
 
             <a
               href="/client/profile"
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-[#718078] transition hover:bg-[#f7f8f5] hover:text-[#14231f]"
             >
-              <span>👤</span>
+              <UserCircle size={18} />
               <span>Profile</span>
             </a>
 
           </nav>
 
           {/* User */}
-          <div className="border-t border-gray-100 p-4">
+          <div className="border-t border-[#edf0ed] p-4">
 
             <div className="mb-4 flex items-center gap-3 px-2">
 
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-600">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#edf6ee] text-sm font-semibold text-[#52705d]">
                 {customerName.charAt(0).toUpperCase()}
               </div>
 
@@ -295,7 +308,7 @@ console.log("==================================");
                   {customerName}
                 </p>
 
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-[#8a9890]">
                   Client
                 </p>
               </div>
@@ -304,8 +317,9 @@ console.log("==================================");
 
             <button
               onClick={handleSignOut}
-              className="w-full rounded-lg px-3 py-2 text-left text-sm text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[#718078] transition hover:bg-[#f7f8f5] hover:text-[#14231f]"
             >
+              <LogOut size={17} />
               Sign out
             </button>
 
@@ -316,19 +330,19 @@ console.log("==================================");
         <section className="min-h-screen flex-1 lg:ml-64">
 
           {/* Header */}
-          <header className="border-b border-gray-200 bg-white">
+          <header className="border-b border-[#e4eae5] bg-white">
             <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
 
               <div>
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-[#8a9890]">
                   Welcome back, {customerName}
                 </p>
 
-                <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+                <h1 className="mt-1 text-3xl font-bold tracking-[-0.05em] sm:text-4xl">
                   My Orders
                 </h1>
 
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-2 text-sm text-[#718078]">
                   Track and manage your orders.
                 </p>
               </div>
@@ -336,9 +350,9 @@ console.log("==================================");
               <button
                 onClick={loadClientData}
                 disabled={loading}
-                className="hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium shadow-sm transition hover:bg-gray-50 disabled:opacity-50 sm:flex"
+                className="hidden items-center gap-2 rounded-xl border border-[#d5ded7] bg-white px-4 py-2.5 text-sm font-semibold text-[#42514b] shadow-sm transition hover:border-[#9eafa5] hover:bg-[#f7f8f5] disabled:opacity-50 sm:flex"
               >
-                <span>↻</span>
+                <RefreshCw size={15} />
                 {loading ? "Refreshing..." : "Refresh"}
               </button>
 
@@ -352,9 +366,9 @@ console.log("==================================");
             <button
               onClick={loadClientData}
               disabled={loading}
-              className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium shadow-sm sm:hidden"
+              className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d5ded7] bg-white px-4 py-3 text-sm font-semibold text-[#42514b] shadow-sm sm:hidden"
             >
-              <span>↻</span>
+              <RefreshCw size={15} />
               {loading ? "Refreshing..." : "Refresh orders"}
             </button>
 
@@ -362,7 +376,7 @@ console.log("==================================");
             {error && (
               <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
                 <div className="flex gap-3">
-                  <span className="text-red-500">!</span>
+                  <AlertCircle size={18} className="shrink-0 text-red-500" />
 
                   <div>
                     <p className="text-sm font-medium text-red-800">
@@ -410,18 +424,18 @@ console.log("==================================");
             ) : orders.length === 0 ? (
 
               /* Empty state */
-              <div className="rounded-2xl border border-gray-200 bg-white px-6 py-16 text-center shadow-sm">
+              <div className="rounded-2xl border border-[#dce7de] bg-white px-6 py-16 text-center shadow-[0_8px_24px_rgba(38,64,52,0.05)]">
 
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 text-3xl">
-                  📦
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#edf6ee] text-[#71977b]">
+                  <Package size={28} />
                 </div>
 
-                <h2 className="mt-5 text-lg font-semibold">
+                <h2 className="mt-5 text-lg font-bold">
                   No orders yet
                 </h2>
 
-                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-gray-500">
-                  You don't have any orders associated with your account yet.
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#718078]">
+                  You don&apos;t have any orders associated with your account yet.
                   Your future orders will appear here.
                 </p>
 
@@ -435,22 +449,22 @@ console.log("==================================");
                 {/* Summary */}
                 <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
 
-                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                    <p className="text-xs text-gray-400">
+                    <div className="rounded-2xl border border-[#dce7de] bg-white p-5 shadow-[0_8px_24px_rgba(38,64,52,0.05)]">
+                      <p className="text-xs font-medium text-[#8a9890]">
                       Total orders
                     </p>
 
-                    <p className="mt-1 text-2xl font-semibold">
+                    <p className="mt-1 text-3xl font-bold tracking-[-0.04em]">
                       {orders.length}
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                    <p className="text-xs text-gray-400">
+                  <div className="rounded-2xl border border-[#dce7de] bg-white p-5 shadow-[0_8px_24px_rgba(38,64,52,0.05)]">
+                    <p className="text-xs font-medium text-[#8a9890]">
                       In progress
                     </p>
 
-                    <p className="mt-1 text-2xl font-semibold">
+                    <p className="mt-1 text-3xl font-bold tracking-[-0.04em]">
                       {
                         orders.filter(
                           (order) =>
@@ -462,12 +476,12 @@ console.log("==================================");
                     </p>
                   </div>
 
-                  <div className="col-span-2 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:col-span-1">
-                    <p className="text-xs text-gray-400">
+                  <div className="col-span-2 rounded-2xl border border-[#dce7de] bg-white p-5 shadow-[0_8px_24px_rgba(38,64,52,0.05)] sm:col-span-1">
+                    <p className="text-xs font-medium text-[#8a9890]">
                       Delivered
                     </p>
 
-                    <p className="mt-1 text-2xl font-semibold">
+                    <p className="mt-1 text-3xl font-bold tracking-[-0.04em]">
                       {
                         orders.filter(
                           (order) => order.status === "delivered"
@@ -481,18 +495,18 @@ console.log("==================================");
                 {orders.map((order) => (
                   <article
                     key={order.id}
-                    className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:border-gray-300 hover:shadow-md"
+                    className="overflow-hidden rounded-2xl border border-[#dce7de] bg-white shadow-[0_8px_24px_rgba(38,64,52,0.05)] transition hover:-translate-y-0.5 hover:border-[#b8cdbb] hover:shadow-[0_14px_32px_rgba(38,64,52,0.1)]"
                   >
 
                     {/* Order header */}
-                    <div className="flex flex-col gap-4 border-b border-gray-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                    <div className="flex flex-col gap-4 border-b border-[#edf0ed] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
 
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8a9890]">
                           Order
                         </p>
 
-                        <h2 className="mt-1 text-lg font-semibold">
+                        <h2 className="mt-1 text-xl font-bold tracking-[-0.03em]">
                           #{order.order_number}
                         </h2>
                       </div>
@@ -511,42 +525,42 @@ console.log("==================================");
                     <div className="grid grid-cols-2 gap-y-6 p-5 sm:grid-cols-2 sm:gap-6 sm:p-6 md:grid-cols-4">
 
                       <div>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs font-medium text-[#8a9890]">
                           Total
                         </p>
 
-                        <p className="mt-1 text-sm font-semibold">
+                        <p className="mt-1 text-sm font-bold text-[#263a33]">
                           {Number(order.total_amount).toFixed(2)}{" "}
                           {order.currency}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs font-medium text-[#8a9890]">
                           Ordered
                         </p>
 
-                        <p className="mt-1 text-sm font-medium">
+                        <p className="mt-1 text-sm font-semibold text-[#42514b]">
                           {formatDate(order.ordered_at)}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs font-medium text-[#8a9890]">
                           Expected delivery
                         </p>
 
-                        <p className="mt-1 text-sm font-medium">
+                        <p className="mt-1 text-sm font-semibold text-[#42514b]">
                           {formatDate(order.expected_delivery_at)}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs font-medium text-[#8a9890]">
                           Tracking
                         </p>
 
-                        <p className="mt-1 break-all text-sm font-medium">
+                        <p className="mt-1 break-all text-sm font-semibold text-[#42514b]">
                           {order.tracking_number || "Not available"}
                         </p>
                       </div>
@@ -554,9 +568,9 @@ console.log("==================================");
                     </div>
 
                     {/* Footer */}
-                    <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <div className="flex flex-col gap-3 border-t border-[#edf0ed] bg-[#fafcf9] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
 
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-[#718078]">
                         {order.status === "delivered"
                           ? `Delivered on ${formatDate(order.delivered_at)}`
                           : order.status === "cancelled"
@@ -568,9 +582,9 @@ console.log("==================================");
                         onClick={() =>
                           console.log("View order:", order.id)
                         }
-                        className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 sm:w-auto"
+                        className="w-full rounded-lg border border-[#d5ded7] bg-white px-4 py-2 text-sm font-bold text-[#42514b] transition hover:border-[#9eafa5] hover:bg-[#f7f8f5] sm:w-auto"
                       >
-                        View details →
+                        View details <span aria-hidden="true">→</span>
                       </button>
 
                     </div>
