@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 const REALTIME_TABLES = [
   "conversations",
   "messages",
+  "message_versions",
   "tickets",
   "customers",
   "faq_articles",

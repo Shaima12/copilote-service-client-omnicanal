@@ -15,6 +15,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import WorkspaceTopBar from "@/components/workspace-top-bar";
 
 type Profile = {
   id: string;
@@ -306,8 +307,11 @@ export default function ClientHomePage() {
 
         <main className="flex-1 md:ml-64">
 
-          <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+          <div className="px-5 pt-6 sm:px-8 lg:px-10">
+            <WorkspaceTopBar userId={routeUserId} role="client" />
+          </div>
 
+          <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
 
             {/* ================= WELCOME ================= */}
 

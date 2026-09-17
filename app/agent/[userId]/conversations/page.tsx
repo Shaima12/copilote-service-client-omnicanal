@@ -3,10 +3,15 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import {
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 import {
   Home,
   MessageSquare,
@@ -32,6 +37,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRealtime } from "@/hooks/use-realtime";
+import WorkspaceTopBar from "@/components/workspace-top-bar";
 
 /* ========================================================= */
 /* TYPES                                                       */
@@ -312,7 +318,9 @@ function formatSimilarity(score: number) {
 export default function AgentConversationsPage() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const routeUserId = pathname.split("/")[2];
+  const requestedConversationId = searchParams.get("conversationId");
   const [supabase] = useState(() => createClient());
 
   /* ======================================================= */
@@ -351,7 +359,12 @@ export default function AgentConversationsPage() {
   const [
     selectedConversationId,
     setSelectedConversationId,
-  ] = useState<string | null>(null);
+  ] = useState<string | null>(
+    () => requestedConversationId
+  );
+  const lastHandledNotificationConversationId = useRef<string | null>(
+    requestedConversationId
+  );
 
   const [selectedSource, setSelectedSource] =
     useState<Source | null>(null);
@@ -391,7 +404,7 @@ export default function AgentConversationsPage() {
     useState("");
 
   const [rejectedDrafts, setRejectedDrafts] =
-    useState<Record<string, boolean>>({});
+    useState<Record<string, string>>({});
 
   /* ======================================================= */
   /* LOAD DATA                                                 */
@@ -472,6 +485,7 @@ export default function AgentConversationsPage() {
         .in("status", [
           "new",
           "open",
+          "rejected",
         ])
         .order("created_at", {
           ascending: true,
@@ -484,18 +498,77 @@ export default function AgentConversationsPage() {
         );
       }
 
-      const conversationList =
-        conversationData || [];
+      let conversationList = conversationData || [];
+
+      if (
+        requestedConversationId &&
+        !conversationList.some(
+          (conversation) =>
+            conversation.id === requestedConversationId
+        )
+      ) {
+        const { data: requestedConversation } = await supabase
+          .from("conversations")
+          .select(
+            `
+            id,
+            customer_id,
+            order_number,
+            channel,
+            status,
+            queue,
+            language,
+            intent,
+            sentiment,
+            urgency_score,
+            created_at,
+            updated_at
+            `
+          )
+          .eq("id", requestedConversationId)
+          .maybeSingle();
+
+        if (requestedConversation) {
+          conversationList = [
+            requestedConversation,
+            ...conversationList,
+          ];
+        }
+      }
 
       setConversations(
         conversationList
       );
+
+      if (requestedConversationId) {
+        const requestedConversation = conversationList.find(
+          (conversation) =>
+            conversation.id === requestedConversationId
+        );
+
+        if (requestedConversation) {
+          setSelectedConversationId(
+            requestedConversation.id
+          );
+        }
+      }
 
       if (
         conversationList.length === 0
       ) {
         setLoading(false);
         return;
+      }
+
+      if (requestedConversationId) {
+        const requestedConversation = conversationList.find(
+          (conversation) =>
+            conversation.id === requestedConversationId
+        );
+
+        if (requestedConversation) {
+          await openConversation(requestedConversation);
+        }
       }
 
       const conversationIds =
@@ -633,17 +706,14 @@ export default function AgentConversationsPage() {
           author_id,
           created_at
           `
-        )
-        .in(
-          "conversation_id",
-          conversationIds
-        )
-        .is(
-          "message_id",
-          null
-        )
+          )
+          .in(
+            "conversation_id",
+            conversationIds
+          )
+          .in("author_type", ["ai", "ai-reflection"])
         .order(
-          "version_number",
+          "created_at",
           {
             ascending: false,
           }
@@ -656,25 +726,44 @@ export default function AgentConversationsPage() {
         );
       }
 
-      const draftMap: Record<
+      const reflectionDraftMap: Record<
         string,
-        MessageVersion | null
+        MessageVersion
+      > = {};
+      const originalDraftMap: Record<
+        string,
+        MessageVersion
       > = {};
 
       (versionData || []).forEach(
         (version) => {
-          if (
-            version.conversation_id &&
-            !draftMap[
-              version.conversation_id
-            ]
-          ) {
-            draftMap[
-              version.conversation_id
-            ] = version;
+          if (!version.conversation_id) {
+            return;
+          }
+
+          const authorType = version.author_type
+            .trim()
+            .toLowerCase()
+            .replace(/[_\s]+/g, "-");
+
+          if (authorType === "ai-reflection" && !reflectionDraftMap[version.conversation_id]) {
+            reflectionDraftMap[version.conversation_id] = version;
+          }
+
+          if (authorType === "ai" && !originalDraftMap[version.conversation_id]) {
+            originalDraftMap[version.conversation_id] = version;
           }
         }
       );
+
+      const draftMap: Record<string, MessageVersion | null> = {};
+
+      conversationIds.forEach((conversationId) => {
+        draftMap[conversationId] =
+          reflectionDraftMap[conversationId] ||
+          originalDraftMap[conversationId] ||
+          null;
+      });
 
       setDrafts(draftMap);
 
@@ -1195,6 +1284,13 @@ export default function AgentConversationsPage() {
       conversation.id
     );
 
+    router.replace(
+      `${pathname}?conversationId=${encodeURIComponent(
+        conversation.id
+      )}`,
+      { scroll: false }
+    );
+
     setEditingDraft(false);
 
     setEditingDraftContent("");
@@ -1236,6 +1332,43 @@ export default function AgentConversationsPage() {
       }
     }
   }
+
+  // A notification can update only the query string while this page is already
+  // open. React to that change instead of waiting for the page to remount.
+  useEffect(() => {
+    if (
+      !requestedConversationId ||
+      requestedConversationId === lastHandledNotificationConversationId.current
+    ) {
+      return;
+    }
+
+    const requestedConversation = conversations.find(
+      (conversation) => conversation.id === requestedConversationId
+    );
+
+    if (!requestedConversation) {
+      return;
+    }
+
+    lastHandledNotificationConversationId.current = requestedConversationId;
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (cancelled) {
+        return;
+      }
+
+      setSelectedConversationId(requestedConversation.id);
+      setEditingDraft(false);
+      setEditingDraftContent("");
+      setSelectedSource(null);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversations, requestedConversationId]);
 
   /* ======================================================= */
   /* START EDITING                                             */
@@ -1425,12 +1558,36 @@ export default function AgentConversationsPage() {
         draft?.content || null,
     });
 
+    const { error: conversationUpdateError } = await supabase
+      .from("conversations")
+      .update({
+        status: "rejected",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", conversationId);
+
+    if (conversationUpdateError) {
+      console.error(
+        "Conversation rejection error:",
+        conversationUpdateError
+      );
+      return;
+    }
+
     setRejectedDrafts(
       (current) => ({
         ...current,
         [conversationId]:
-          true,
+          draft?.id || "",
       })
+    );
+
+    setConversations((current) =>
+      current.map((conversation) =>
+        conversation.id === conversationId
+          ? { ...conversation, status: "rejected" }
+          : conversation
+      )
     );
 
     setEditingDraft(false);
@@ -1553,6 +1710,31 @@ export default function AgentConversationsPage() {
         console.error(
           "Conversation update error:",
           updateError
+        );
+      }
+
+      /* ----------------------------------------------- */
+      /* RESOLVE RELATED TICKET                            */
+      /* ----------------------------------------------- */
+
+      const {
+        error: ticketUpdateError,
+      } = await supabase
+        .from("tickets")
+        .update({
+          status: "resolved",
+          resolved_at: now,
+        })
+        .eq(
+          "conversation_id",
+          conversationId
+        )
+        .in("status", ["new", "open"]);
+
+      if (ticketUpdateError) {
+        console.error(
+          "Ticket resolution error:",
+          ticketUpdateError
         );
       }
 
@@ -1781,15 +1963,19 @@ export default function AgentConversationsPage() {
         ] || []
       : [];
 
+  const selectedDraftCandidate = selectedConversation
+    ? drafts[selectedConversation.id] || null
+    : null;
   const selectedDraft =
-    selectedConversation &&
-    !rejectedDrafts[
-      selectedConversation.id
-    ]
-      ? drafts[
-          selectedConversation.id
-        ] || null
+    selectedDraftCandidate &&
+    rejectedDrafts[selectedConversation?.id || ""] !== selectedDraftCandidate.id
+      ? selectedDraftCandidate
       : null;
+  const isReflectionDraft =
+    selectedDraft?.author_type
+      ?.trim()
+      .toLowerCase()
+      .replace(/[_\s]+/g, "-") === "ai-reflection";
 
   const selectedOrder =
     selectedConversation?.order_number
@@ -1917,18 +2103,6 @@ export default function AgentConversationsPage() {
 
           <MobileNavItem
             icon={
-              <AlertTriangle size={17} />
-            }
-            label="Escalations"
-            onClick={() =>
-              router.push(
-                `/agent/${routeUserId}/escalations`
-              )
-            }
-          />
-
-          <MobileNavItem
-            icon={
               <UserCircle size={17} />
             }
             label="Profile"
@@ -2009,18 +2183,6 @@ export default function AgentConversationsPage() {
 
               <SidebarItem
                 icon={
-                  <AlertTriangle size={18} />
-                }
-                label="Escalations"
-                onClick={() =>
-                  router.push(
-                    `/agent/${routeUserId}/escalations`
-                  )
-                }
-              />
-
-              <SidebarItem
-                icon={
                   <UserCircle size={18} />
                 }
                 label="Profile"
@@ -2055,6 +2217,8 @@ export default function AgentConversationsPage() {
         <main className="flex-1 md:ml-64">
 
           <div className="mx-auto max-w-[1500px] px-5 py-6 sm:px-8 lg:px-10">
+
+            <WorkspaceTopBar userId={routeUserId} role="agent" />
 
             {/* HEADER */}
 
@@ -2771,6 +2935,13 @@ export default function AgentConversationsPage() {
                                     AI-assisted response
                                   </h3>
 
+                                  {isReflectionDraft && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[9px] font-semibold text-red-700">
+                                      <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                                      AI-reflection
+                                    </span>
+                                  )}
+
                                 </div>
 
                                 <p className="mt-1.5 text-[11px] text-gray-500">
@@ -2808,6 +2979,13 @@ export default function AgentConversationsPage() {
                                     <span className="text-[11px] font-medium text-gray-600">
                                       Suggested reply
                                     </span>
+
+                                    {isReflectionDraft && (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[9px] font-semibold text-red-700">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                                        AI reflection
+                                      </span>
+                                    )}
 
                                   </div>
 

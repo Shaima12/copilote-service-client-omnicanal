@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useConversationRealtime } from "@/lib/supabase/use-conversation-realtime";
+import WorkspaceTopBar from "@/components/workspace-top-bar";
 
 type Profile = {
   id: string;
@@ -33,7 +34,7 @@ type Conversation = {
   id: string;
   customer_id: string;
   channel: "web" | "email" | "whatsapp";
-  status: "new" | "open" | "escalated" | "resolved";
+  status: "new" | "open" | "escalated" | "resolved" | "rejected";
   queue: string;
   language: string | null;
   intent: string | null;
@@ -624,6 +625,10 @@ async function createConversation() {
         {/* ====================================================== */}
 
         <main className="flex-1 md:ml-64">
+          <div className="px-4 pt-6 sm:px-6 lg:px-8">
+            <WorkspaceTopBar userId={routeUserId} role="client" />
+          </div>
+
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
             {/* Page header */}
 
@@ -1025,9 +1030,14 @@ function StatusBadge({
       className: "bg-gray-100 text-gray-600",
       icon: <CheckCircle2 size={10} />,
     },
+    rejected: {
+      label: "Rejected",
+      className: "bg-red-50 text-red-700",
+      icon: <AlertCircle size={10} />,
+    },
   };
 
-  const current = config[status];
+  const current = config[status] ?? config.new;
 
   return (
     <span

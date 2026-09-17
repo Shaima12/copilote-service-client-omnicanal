@@ -34,6 +34,7 @@ import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/client";
 import { useConversationRealtime } from "@/lib/supabase/use-conversation-realtime";
+import WorkspaceTopBar from "@/components/workspace-top-bar";
 
 /* ========================================================= */
 /* TYPES                                                       */
@@ -2567,6 +2568,8 @@ function SupervisorShell({
 
         <main className="flex-1">
           <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+            <WorkspaceTopBar userId={userId} role="supervisor" />
+
             {children}
           </div>
         </main>

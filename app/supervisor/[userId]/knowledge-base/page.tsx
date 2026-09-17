@@ -19,6 +19,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import WorkspaceTopBar from "@/components/workspace-top-bar";
 
 type Category = {
   id: string;
@@ -549,6 +550,8 @@ export default function KnowledgeBasePage() {
         <main className="flex-1 md:ml-64">
 
           <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+
+            <WorkspaceTopBar userId={routeUserId} role="supervisor" />
 
             {/* Header */}
 

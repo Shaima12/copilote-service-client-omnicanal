@@ -7,7 +7,6 @@ import {
   BookOpen,
   MessageSquare,
   CircleHelp,
-  AlertTriangle,
   UserCircle,
   LogOut,
   Search,
@@ -16,6 +15,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import WorkspaceTopBar from "@/components/workspace-top-bar";
 
 type Category = {
   id: string;
@@ -205,14 +205,6 @@ export default function AgentFAQPage() {
           />
 
           <MobileNavItem
-            icon={<AlertTriangle size={17} />}
-            label="Escalations"
-            onClick={() =>
-              router.push(`/agent/${routeUserId}/escalations`)
-            }
-          />
-
-          <MobileNavItem
             icon={<UserCircle size={17} />}
             label="Profile"
             onClick={() =>
@@ -276,14 +268,6 @@ export default function AgentFAQPage() {
               />
 
               <SidebarItem
-                icon={<AlertTriangle size={18} />}
-                label="Escalations"
-                onClick={() =>
-                  router.push(`/agent/${routeUserId}/escalations`)
-                }
-              />
-
-              <SidebarItem
                 icon={<UserCircle size={18} />}
                 label="Profile"
                 onClick={() =>
@@ -319,6 +303,8 @@ export default function AgentFAQPage() {
         <main className="flex-1 md:ml-64">
 
           <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+
+            <WorkspaceTopBar userId={routeUserId} role="agent" />
 
             {/* HEADER */}
 

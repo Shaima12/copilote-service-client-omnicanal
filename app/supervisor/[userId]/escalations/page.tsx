@@ -19,6 +19,7 @@ import {
 
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/require-role";
+import WorkspaceTopBar from "@/components/workspace-top-bar";
 import EscalationRealtimeRefresh from "./realtime-refresh";
 
 type PageProps = {
@@ -700,6 +701,8 @@ function SupervisorShell({
 
         <main className="flex-1">
           <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+            <WorkspaceTopBar userId={userId} role="supervisor" />
+
             {children}
           </div>
         </main>

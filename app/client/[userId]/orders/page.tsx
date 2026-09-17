@@ -15,6 +15,7 @@ import {
   UserCircle,
   UserRound,
 } from "lucide-react";
+import WorkspaceTopBar from "@/components/workspace-top-bar";
 
 type Order = {
   id: string;
@@ -330,6 +331,10 @@ console.log("==================================");
 
         {/* ================= MAIN CONTENT ================= */}
         <section className="min-h-screen flex-1 md:ml-64">
+
+          <div className="px-4 pt-6 sm:px-6 lg:px-8">
+            <WorkspaceTopBar userId={routeUserId} role="client" />
+          </div>
 
           {/* Header */}
           <header className="border-b border-[#e4eae5] bg-white">

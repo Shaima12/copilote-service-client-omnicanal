@@ -13,6 +13,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import WorkspaceTopBar from "@/components/workspace-top-bar";
 
 type Profile = {
   full_name: string;
@@ -216,6 +217,8 @@ export default function SupervisorPage() {
         <main className="flex-1">
 
           <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+
+            <WorkspaceTopBar userId={routeUserId} role="supervisor" />
 
             {/* Welcome */}
             <section>

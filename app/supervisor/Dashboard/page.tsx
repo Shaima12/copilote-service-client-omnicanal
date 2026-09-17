@@ -146,6 +146,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import WorkspaceTopBar from "@/components/workspace-top-bar";
 
 type Conversation = {
   id: string;
@@ -485,6 +486,8 @@ export default function SupervisorDashboardPage() {
   return (
     <SupervisorShell userId={userId}>
       <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+        <WorkspaceTopBar userId={userId} role="supervisor" />
+
         {/* HEADER */}
         <div className="mb-8 flex items-start justify-between">
           <div>

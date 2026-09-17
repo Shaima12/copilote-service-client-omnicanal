@@ -15,6 +15,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import WorkspaceTopBar from "@/components/workspace-top-bar";
 
 type Profile = {
   full_name: string;
@@ -25,9 +26,25 @@ type Profile = {
 type Conversation = {
   id: string;
   status: string;
-  priority: string;
   urgency_score: number | null;
+  created_at: string;
+  first_response_at: string | null;
 };
+
+function formatDuration(milliseconds: number) {
+  const totalMinutes = Math.round(milliseconds / 60_000);
+
+  if (totalMinutes < 1) {
+    return "< 1 min";
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return hours > 0
+    ? `${hours}h ${minutes}m`
+    : `${minutes} min`;
+}
 
 export default function AgentHomePage() {
   const router = useRouter();
@@ -37,6 +54,9 @@ export default function AgentHomePage() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [resolvedCount, setResolvedCount] = useState(0);
+  const [averageFirstResponseTime, setAverageFirstResponseTime] =
+    useState("—");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -71,14 +91,47 @@ export default function AgentHomePage() {
       return;
     }
 
-    const { data: conversationData } = await supabase
-      .from("conversations")
-      .select(
-        "id, status, priority, urgency_score"
-      );
+    const [conversationResult, auditLogResult] = await Promise.all([
+      supabase
+        .from("conversations")
+        .select("id, status, urgency_score, created_at, first_response_at"),
+      supabase
+        .from("conversation_audit_logs")
+        .select("conversation_id")
+        .eq("actor_id", user.id)
+        .eq("action", "SENT"),
+    ]);
+
+    const conversationData = conversationResult.data || [];
+    const sentConversationIds = new Set(
+      (auditLogResult.data || []).map((log) => log.conversation_id)
+    );
+
+    const agentResolvedConversations = conversationData.filter(
+      (conversation) =>
+        conversation.status === "resolved" &&
+        sentConversationIds.has(conversation.id)
+    );
+    const responseTimes = agentResolvedConversations
+      .filter((conversation) => conversation.first_response_at)
+      .map(
+        (conversation) =>
+          new Date(conversation.first_response_at as string).getTime() -
+          new Date(conversation.created_at).getTime()
+      )
+      .filter((responseTime) => responseTime >= 0);
 
     setProfile(profileData);
-    setConversations(conversationData || []);
+    setConversations(conversationData);
+    setResolvedCount(agentResolvedConversations.length);
+    setAverageFirstResponseTime(
+      responseTimes.length > 0
+        ? formatDuration(
+            responseTimes.reduce((total, responseTime) => total + responseTime, 0) /
+              responseTimes.length
+          )
+        : "—"
+    );
     setLoading(false);
   }
 
@@ -87,25 +140,16 @@ export default function AgentHomePage() {
     router.push("/login");
   }
 
-  const openCount = conversations.filter(
+  const criticalUrgencyCount = conversations.filter(
     (conversation) =>
-      conversation.status === "open" ||
+      (conversation.urgency_score ?? 0) > 75 &&
       conversation.status === "new"
   ).length;
 
-  const escalatedCount = conversations.filter(
+  const unresolvedCount = conversations.filter(
     (conversation) =>
-      conversation.status === "escalated"
-  ).length;
-
-  const urgentCount = conversations.filter(
-    (conversation) =>
-      conversation.priority === "urgent"
-  ).length;
-
-  const resolvedCount = conversations.filter(
-    (conversation) =>
-      conversation.status === "resolved"
+      conversation.status === "new" ||
+      conversation.status === "open"
   ).length;
 
   const firstName =
@@ -183,12 +227,6 @@ export default function AgentHomePage() {
           />
 
           <MobileNavItem
-            icon={<AlertTriangle size={17} />}
-            label="Escalations"
-            onClick={() => router.push(`/agent/${routeUserId}/escalations`)}
-          />
-
-          <MobileNavItem
             icon={<UserCircle size={17} />}
             label="Profile"
             onClick={() => router.push(`/agent/${routeUserId}/profile`)}
@@ -250,14 +288,6 @@ export default function AgentHomePage() {
               />
 
               <SidebarItem
-                icon={<AlertTriangle size={18} />}
-                label="Escalations"
-                onClick={() =>
-                  router.push(`/agent/${routeUserId}/escalations`)
-                }
-              />
-
-              <SidebarItem
                 icon={<UserCircle size={18} />}
                 label="Profile"
                 onClick={() =>
@@ -290,6 +320,8 @@ export default function AgentHomePage() {
         <main className="flex-1 md:ml-64">
 
           <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+
+            <WorkspaceTopBar userId={routeUserId} role="agent" />
 
             {/* HEADER */}
 
@@ -354,24 +386,18 @@ export default function AgentHomePage() {
             <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
               <StatCard
-                icon={<Clock3 size={19} />}
-                label="Open conversations"
-                value={openCount}
-                accent="blue"
-              />
-
-              <StatCard
                 icon={<AlertTriangle size={19} />}
-                label="Escalated"
-                value={escalatedCount}
+                label="Not resolved"
+                value={unresolvedCount}
                 accent="orange"
               />
 
               <StatCard
                 icon={<AlertTriangle size={19} />}
-                label="Urgent"
-                value={urgentCount}
+                label="Critical urgency"
+                value={criticalUrgencyCount}
                 accent="red"
+                description="Conversations with critical urgency that are not resolved."
               />
 
               <StatCard
@@ -379,6 +405,14 @@ export default function AgentHomePage() {
                 label="Resolved"
                 value={resolvedCount}
                 accent="green"
+              />
+
+              <StatCard
+                icon={<Clock3 size={19} />}
+                label="Average first response time"
+                value={averageFirstResponseTime}
+                accent="blue"
+                description="Resolved conversations answered by you."
               />
 
             </div>
@@ -443,11 +477,13 @@ function StatCard({
   label,
   value,
   accent,
+  description,
 }: {
   icon: React.ReactNode;
   label: string;
-  value: number;
+  value: number | string;
   accent: "blue" | "orange" | "red" | "green";
+  description?: string;
 }) {
   const accentClasses = {
     blue: "bg-blue-50 text-blue-600",
@@ -476,6 +512,12 @@ function StatCard({
       <p className="mt-1 text-xs text-gray-500">
         {label}
       </p>
+
+      {description && (
+        <p className="mt-1 text-[11px] leading-4 text-gray-400">
+          {description}
+        </p>
+      )}
 
     </div>
   );
