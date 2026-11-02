@@ -1,0 +1,410 @@
+{
+  "name": "W2 — Assisted Response",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "assisted-response",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -208,
+        -16
+      ],
+      "id": "8b7db545-01b1-4d4a-a5f7-012f5382b353",
+      "name": "Webhook",
+      "webhookId": "19677089-24e3-4132-9513-ed51b8fbf9a8"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==================================================\n// W2 — GET CONTEXT\n// ==================================================\n\n// 1. Get IDs received from W1\nconst webhook = $('Webhook').first().json;\n\nconst conversationId = webhook.body.conversation_id;\nconst messageId = webhook.body.message_id;\nconst customerId = webhook.body.customer_id;\n\nif (!conversationId || !messageId || !customerId) {\n  throw new Error(\n    `Missing IDs. conversation_id=${conversationId}, message_id=${messageId}, customer_id=${customerId}`\n  );\n}\n\n// ==================================================\n// 2. SUPABASE CONNECTION\n// ==================================================\n\nconst supabaseUrl = 'https://jikdykibhyewrfnlpptv.supabase.co';\nconst supabaseKey = 'sb_secret_1g3-NRYivFEIBV415V3tnw_GcnjqMkI';\n\nconst headers = {\n  apikey: supabaseKey,\n  Authorization: `Bearer ${supabaseKey}`,\n  'Content-Type': 'application/json'\n};\n\nasync function supabaseGet(table, query) {\n  return await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${supabaseUrl}/rest/v1/${table}?${query}`,\n    headers\n  });\n}\n\n// ==================================================\n// 3. GET CONVERSATION\n// ==================================================\n\nconst conversation = await supabaseGet(\n  'conversations',\n  `select=id,customer_id,channel,status,queue,language,intent,sentiment,urgency_score,order_number,created_at,updated_at&id=eq.${conversationId}`\n);\n\nconst currentConversation = conversation[0] || null;\n\nif (!currentConversation) {\n  throw new Error(\n    `Conversation not found: ${conversationId}`\n  );\n}\n\n// ==================================================\n// 4. CONVERT URGENCY SCORE → LEVEL\n// ==================================================\n\nconst urgencyScore = currentConversation.urgency_score ?? 0;\n\nlet urgencyLevel;\n\nif (urgencyScore <= 25) {\n  urgencyLevel = 'Low';\n} else if (urgencyScore <= 50) {\n  urgencyLevel = 'Medium';\n} else if (urgencyScore <= 75) {\n  urgencyLevel = 'High';\n} else {\n  urgencyLevel = 'Critical';\n}\n\n// ==================================================\n// 5. GET CURRENT MESSAGE\n// ==================================================\n\nconst messages = await supabaseGet(\n  'messages',\n  `select=id,conversation_id,sender_type,sender_id,content,created_at&id=eq.${messageId}`\n);\n\nconst currentMessage = messages[0] || null;\n\nif (!currentMessage) {\n  throw new Error(\n    `Message not found: ${messageId}`\n  );\n}\n\n// ==================================================\n// 6. GET CONVERSATION HISTORY\n// ==================================================\n\nconst history = await supabaseGet(\n  'messages',\n  `select=id,sender_type,sender_id,content,created_at&conversation_id=eq.${conversationId}&order=created_at.asc&limit=20`\n);\n\n// ==================================================\n// 7. GET CUSTOMER\n// ==================================================\n\nconst customers = await supabaseGet(\n  'customers',\n  `select=id,full_name,email,phone&id=eq.${customerId}`\n);\n\nconst customer = customers[0] || null;\n\n// ==================================================\n// 8. GET RELEVANT ORDER\n// ==================================================\n\nlet order = null;\n\nif (currentConversation.order_number) {\n\n  const orders = await supabaseGet(\n    'orders',\n    `select=id,customer_id,order_number,status,total_amount,currency,ordered_at,expected_delivery_at,delivered_at,tracking_number&customer_id=eq.${customerId}&order_number=eq.${encodeURIComponent(currentConversation.order_number)}`\n  );\n\n  order = orders[0] || null;\n}\n\n// ==================================================\n// 9. RETURN CONTEXT\n// ==================================================\n\nreturn [\n  {\n    json: {\n      conversation: {\n        id: currentConversation.id,\n        customer_id: currentConversation.customer_id,\n        channel: currentConversation.channel,\n        status: currentConversation.status,\n        queue: currentConversation.queue,\n        language: currentConversation.language,\n        intent: currentConversation.intent,\n        sentiment: currentConversation.sentiment,\n\n        // Keep score for application logic,\n        // but the LLM will receive urgency_level later.\n        urgency_score: urgencyScore,\n        urgency_level: urgencyLevel,\n\n        order_number: currentConversation.order_number,\n\n        created_at: currentConversation.created_at,\n        updated_at: currentConversation.updated_at\n      },\n\n      message: currentMessage,\n\n      conversation_history: history,\n\n      customer: customer,\n\n      order: order\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        -64
+      ],
+      "id": "9f14fe91-ccec-4076-8e43-7f5ef33ce616",
+      "name": "Get Context"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.jina.ai/v1/embeddings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer jina_3f1b30cb981242e496735d566abb8940ERH9xEqS_tcCAHwKYL12r5mVAHxO"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"jina-embeddings-v5-text-small\",\n  \"input\": [\n    {{ JSON.stringify($('Webhook').first().json.body.content) }}\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        96,
+        128
+      ],
+      "id": "33c5c3f7-a448-4896-b51e-c3728cfdafb7",
+      "name": "Generate Query Embedding"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jikdykibhyewrfnlpptv.supabase.co/rest/v1/rpc/search_faq_chunks",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_secret_1g3-NRYivFEIBV415V3tnw_GcnjqMkI"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_secret_1g3-NRYivFEIBV415V3tnw_GcnjqMkI"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query_embedding\": {{ JSON.stringify($json.data[0].embedding) }},\n  \"match_count\": 3\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        320,
+        128
+      ],
+      "id": "50fa20e5-aac9-42ec-b0c6-23e2e491d389",
+      "name": "Search FAQ"
+    },
+    {
+      "parameters": {
+        "jsCode": "// W2 — SAVE FAQ SOURCES\n\nconst results = $input.all();\n\n// Get message ID from W2 webhook\nconst messageId = $('Webhook').first().json.body.message_id;\n\nif (!messageId) {\n  throw new Error('Missing message_id.');\n}\n\n// Nothing to save\nif (!results.length) {\n  return [\n    {\n      json: {\n        message_id: messageId,\n        sources_saved: 0,\n        sources: []\n      }\n    }\n  ];\n}\n\n// Prepare sources\nconst sources = results.map((item, index) => ({\n  message_id: messageId,\n  chunk_id: item.json.chunk_id,\n  similarity_score: item.json.similarity,\n  rank: index + 1\n}));\n\n// Supabase connection\nconst supabaseUrl = 'https://jikdykibhyewrfnlpptv.supabase.co';\nconst supabaseKey = 'sb_secret_1g3-NRYivFEIBV415V3tnw_GcnjqMkI';\n\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `${supabaseUrl}/rest/v1/ai_response_sources`,\n  headers: {\n    apikey: supabaseKey,\n    Authorization: `Bearer ${supabaseKey}`,\n    'Content-Type': 'application/json',\n    Prefer: 'return=minimal'\n  },\n  body: sources\n});\n\nreturn [\n  {\n    json: {\n      message_id: messageId,\n      sources_saved: sources.length,\n      sources: sources\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        128
+      ],
+      "id": "3f948a10-5c98-414a-b814-4371b7792592",
+      "name": "Save Sources"
+    },
+    {
+      "parameters": {
+        "jsCode": "// W2 — PREPARE GENERATION CONTEXT\n\nconst context = $('Get Context').first().json;\nconst faqResults = $('Search FAQ').all();\n\nconst sources = faqResults.map((item, index) => ({\n  rank: index + 1,\n  article_title: item.json.article_title,\n  section_title: item.json.section_title,\n  content: item.json.content,\n  similarity: item.json.similarity\n}));\n\nreturn [\n  {\n    json: {\n      message: context.message,\n      conversation: context.conversation,\n      conversation_history: context.conversation_history,\n      customer: context.customer,\n      order: context.order,\n      faq_sources: sources\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        128
+      ],
+      "id": "55cea8cb-459f-4d65-a7bd-4de4b018a8e7",
+      "name": "Prepare Generation Context"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        992,
+        304
+      ],
+      "id": "a9455064-d02d-4f4d-b025-b12ab04a086d",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "ahnq0t5U2h26mrPr",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// W2 — SAVE AI GENERATED VERSION\n\nconst llmOutput = $('Generate AI Response').first().json;\n\nif (!llmOutput.text) {\n  throw new Error('Missing AI response.');\n}\n\nlet data;\n\ntry {\n  data = JSON.parse(llmOutput.text);\n} catch (error) {\n  throw new Error(\n    `Invalid JSON from AI: ${error.message}`\n  );\n}\n\nconst webhook = $('Webhook').first().json;\n\nconst conversationId = webhook.body.conversation_id;\nconst messageId = webhook.body.message_id;\n\nif (!conversationId) {\n  throw new Error('Missing conversation_id.');\n}\n\nif (!messageId) {\n  throw new Error('Missing message_id.');\n}\n\nif (!data.answer) {\n  throw new Error('AI response does not contain an answer.');\n}\n\n// Supabase connection\nconst supabaseUrl = 'https://jikdykibhyewrfnlpptv.supabase.co';\nconst supabaseKey = 'sb_secret_1g3-NRYivFEIBV415V3tnw_GcnjqMkI';\n\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `${supabaseUrl}/rest/v1/message_versions`,\n  headers: {\n    apikey: supabaseKey,\n    Authorization: `Bearer ${supabaseKey}`,\n    'Content-Type': 'application/json',\n    Prefer: 'return=representation'\n  },\n  body: {\n    conversation_id: conversationId,\n    message_id: null,\n    version_number: 1,\n    content: data.answer,\n    author_type: 'ai',\n    author_id: null\n  }\n});\n\nreturn [\n  {\n    json: {\n      version_id: response[0]?.id,\n      conversation_id: conversationId,\n      message_id: messageId,\n      version_number: 1,\n      content: data.answer,\n      author_type: 'ai',\n      sources: data.sources || []\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        128
+      ],
+      "id": "501180fa-5f14-45be-b5b7-8823e9faadad",
+      "name": "Save AI Answer"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Generate a customer-service response using the following context:\n\n{{ JSON.stringify($json, null, 2) }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are an AI customer service assistant for a fashion retail company.  Your task is to draft a response that a human support agent can review before sending.  IMPORTANT RULES:  1. Use ONLY the information contained in the provided FAQ sources and customer context. 2. Never invent:    - order status    - delivery dates    - tracking information    - prices    - refunds    - policies    - any other facts not present in the context. 3. The FAQ sources are the authoritative knowledge base for general customer-service information. 4. If the FAQ sources do not provide enough information to answer the customer's question reliably, explicitly say that reliable information was not found and recommend human-agent handling. 5. If an order is referenced but the order information is null or unavailable, do NOT guess its status or delivery date. 6. Answer in the customer's language. 7. Be concise, professional, empathetic, and natural. 8. Do not mention \"RAG\", embeddings, pgvector, similarity scores, or internal systems. 9. The response is a DRAFT for an agent. The agent will validate, edit, reject, and send it. 10. Do not claim that an action has been performed unless the context explicitly confirms it.  11. STRICT FACTUALITY : Never convert a condition mentioned in an FAQ into a confirmed fact about the customer's order.\n\nRETRIEVAL RULE:  Use the FAQ sources only when they are sufficiently relevant to the customer's request.  If the best available FAQ source has a low relevance score or the sources do not answer the question, produce a fallback response instead of guessing. \n\nReturn ONLY valid JSON in this exact format:  \nSTRICT OUTPUT RULE:\nReturn ONLY the JSON object.\nDo NOT use Markdown code fences.\nDo NOT write ```json.\nDo NOT write ```.\n\nThe first character MUST be {.\nThe last character MUST be }.\n\nThe output MUST be directly parseable by JSON.parse().\nDo not put explanations, comments, or any text outside the JSON object.\n\n\n{   \"answer\": \"draft response to the customer\",   \"fallback\": false,   \"reason\": null,   \"sources\": [     {       \"rank\": ,       \"article_title\": \"...\",       \"similarity\":      }   ] }  If a reliable answer cannot be produced:  {   \"answer\": \"fallback message for the customer\",   \"fallback\": true,   \"reason\": \"Brief explanation of why the FAQ knowledge was insufficient.\",   \"sources\": [] }"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        992,
+        128
+      ],
+      "id": "00185e72-61d3-49bb-96f3-ceddc77d4dfa",
+      "name": "Generate AI Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sources = $json.sources ?? [];\n\nconst scores = sources\n  .map(source => Number(source.similarity))\n  .filter(score => Number.isFinite(score));\n\nconst rag_confidence = scores.length > 0\n  ? Math.round(\n      (scores.reduce((sum, score) => sum + score, 0) / scores.length) * 100\n    )\n  : 0;\n\nreturn {\n  json: {\n    conversation_id: $json.conversation_id,\n    rag_confidence\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        128
+      ],
+      "id": "a200e155-0e8a-4f1a-b3aa-8ab50675e8fa",
+      "name": "Calculate RAG Confidence"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "90f8a926-5fb8-4688-803d-7f516b0da776",
+              "leftValue": "={{ $json.rag_confidence }}",
+              "rightValue": 50,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1808,
+        128
+      ],
+      "id": "0e791052-a906-4209-94cb-e6299c51b895",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "9sl3cntYfzZltF72",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/9sl3cntYfzZltF72",
+          "cachedResultName": "Customer Support Agent — W3 - Significant escalation"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "conversation_id": "={{ $json.conversation_id }}",
+            "reason": "=Low RAG confidence ({{ $json.rag_confidence }}%). The available knowledge base sources do not sufficiently answer the customer's question. Human expertise is required."
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "conversation_id",
+              "displayName": "conversation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2032,
+        32
+      ],
+      "id": "21ea3421-6ac2-4c75-809c-f2c5c22da6aa",
+      "name": "Call 'W3 - Significant escalation'"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Generate Query Embedding",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Query Embedding": {
+      "main": [
+        [
+          {
+            "node": "Search FAQ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search FAQ": {
+      "main": [
+        [
+          {
+            "node": "Save Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Sources": {
+      "main": [
+        [
+          {
+            "node": "Prepare Generation Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Generation Context": {
+      "main": [
+        [
+          {
+            "node": "Generate AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate AI Response",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate AI Response": {
+      "main": [
+        [
+          {
+            "node": "Save AI Answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save AI Answer": {
+      "main": [
+        [
+          {
+            "node": "Calculate RAG Confidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate RAG Confidence": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Call 'W3 - Significant escalation'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "977e9a11-5695-46ce-a213-4440fbdb6ce4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7f42db105bb7ec25c1d9c535f5a47a63f661d15ba84d2ae8d50ae8357baa5d3d"
+  },
+  "nodeGroups": [],
+  "id": "IPyZkQAsTnSvdPFD",
+  "tags": []
+}

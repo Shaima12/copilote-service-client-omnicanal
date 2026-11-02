@@ -1,0 +1,218 @@
+{
+  "name": "W3 - Significant escalation",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "conversation_id"
+            },
+            {
+              "name": "reason"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -128,
+        -32
+      ],
+      "id": "213b8875-118d-41c7-a658-a1c04c33954e",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "tableId": "tickets",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "conversation_id",
+              "fieldValue": "={{ $json.conversation_id }}"
+            },
+            {
+              "fieldId": "reason",
+              "fieldValue": "={{ $json.reason }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "new"
+            },
+            {
+              "fieldId": "created_by",
+              "fieldValue": "system"
+            },
+            {
+              "fieldId": "assigned_to",
+              "fieldValue": "supervisor"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        192,
+        -112
+      ],
+      "id": "1fd46877-d6ee-4e7e-bea9-0c8e6b4da339",
+      "name": "Create ticket",
+      "credentials": {
+        "supabaseApi": {
+          "id": "IyOm8dfcFy40u3Q7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.conversation_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "escalated"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        192,
+        64
+      ],
+      "id": "31619ebc-643e-48ab-aeb1-23f77058d106",
+      "name": "Conversation Status",
+      "credentials": {
+        "supabaseApi": {
+          "id": "IyOm8dfcFy40u3Q7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "U0C26CZ6G6S",
+          "mode": "list",
+          "cachedResultName": "ichaoui chaima (@ichaoui.shaima)",
+          "cachedResultUrl": ""
+        },
+        "text": "=🚨 *PRIORITY CUSTOMER ESCALATION*\n\n*Ticket:* `#{{ $('Create ticket').item.json.id }}`\n*Conversation:* `{{ $('Create ticket').item.json.conversation_id }}`\n\n🔗 *Open conversation:*\nhttps://copilote-service-client-omnicanal.vercel.app/supervisor/aa1173b3-e839-4691-b5be-0000d0d26c66/escalations/{{ $('Create ticket').item.json.conversation_id }}\n\n*Reason:*\n{{ $('Create ticket').item.json.reason }}\n\n⚠️ *Action required*\n\nPlease review the customer conversation and resolve the ticket.",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        672,
+        -112
+      ],
+      "id": "2435c3df-493e-4186-8cac-b70f4b7015d4",
+      "name": "Send a message",
+      "webhookId": "7360504c-c0b7-478a-8100-9128c36cb29a",
+      "credentials": {
+        "slackApi": {
+          "id": "JaG7G1zZCc8v77Ky",
+          "name": "Slack account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "profiles",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "role",
+              "keyValue": "supervisor"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        416,
+        -112
+      ],
+      "id": "4b0eac0c-dd83-4d00-be6f-f0092ad7a774",
+      "name": "Get a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "IyOm8dfcFy40u3Q7",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Create ticket",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Conversation Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create ticket": {
+      "main": [
+        [
+          {
+            "node": "Get a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "fc087612-005a-4298-8f09-d928897d2c2e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7f42db105bb7ec25c1d9c535f5a47a63f661d15ba84d2ae8d50ae8357baa5d3d"
+  },
+  "nodeGroups": [],
+  "id": "9sl3cntYfzZltF72",
+  "tags": []
+}

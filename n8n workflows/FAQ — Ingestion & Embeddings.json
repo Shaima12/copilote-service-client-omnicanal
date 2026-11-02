@@ -1,0 +1,267 @@
+{
+  "name": "FAQ — Ingestion & Embeddings",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://jikdykibhyewrfnlpptv.supabase.co/rest/v1/faq_articles",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,title,content,category_id,status"
+            },
+            {
+              "name": "status",
+              "value": "eq.published"
+            },
+            {
+              "name": "id",
+              "value": "={{ \"eq.\" + $json.body.article_id }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_secret_1g3-NRYivFEIBV415V3tnw_GcnjqMkI"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_secret_1g3-NRYivFEIBV415V3tnw_GcnjqMkI"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d774a463-e769-4225-8ec1-d476214f3c36",
+      "name": "Get FAQ Article",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "MAX_CHARS = 2000\n\noutput = []\n\nfor item in _items:\n    article = item[\"json\"]\n\n    article_id = article.get(\"id\")\n    question = (article.get(\"title\") or \"\").strip()\n    answer = (article.get(\"content\") or \"\").strip()\n    category_id = article.get(\"category_id\")\n\n    if not question or not answer:\n        continue\n\n    # Complete FAQ\n    full_text = f\"Question: {question}\\n\\nAnswer: {answer}\"\n\n    # Case 1: FAQ is short enough → one chunk\n    if len(full_text) <= MAX_CHARS:\n        output.append({\n            \"json\": {\n                \"article_id\": article_id,\n                \"chunk_index\": 0,\n                \"section_title\": None,\n                \"content\": full_text,\n                \"category_id\": category_id\n            }\n        })\n\n        continue\n\n    # Case 2: FAQ is long → split the answer by paragraphs\n    paragraphs = [\n        p.strip()\n        for p in answer.split(\"\\n\\n\")\n        if p.strip()\n    ]\n\n    current_chunk = \"\"\n    chunk_index = 0\n\n    for paragraph in paragraphs:\n\n        candidate = (\n            f\"{current_chunk}\\n\\n{paragraph}\"\n            if current_chunk\n            else paragraph\n        )\n\n        max_answer_size = MAX_CHARS - len(question) - 20\n\n        if len(candidate) <= max_answer_size:\n            current_chunk = candidate\n\n        else:\n            # Save current chunk\n            if current_chunk:\n                output.append({\n                    \"json\": {\n                        \"article_id\": article_id,\n                        \"chunk_index\": chunk_index,\n                        \"section_title\": None,\n                        \"content\": (\n                            f\"Question: {question}\\n\\n\"\n                            f\"Answer: {current_chunk}\"\n                        ),\n                        \"category_id\": category_id\n                    }\n                })\n\n                chunk_index += 1\n\n            current_chunk = paragraph\n\n    # Save final chunk\n    if current_chunk:\n        output.append({\n            \"json\": {\n                \"article_id\": article_id,\n                \"chunk_index\": chunk_index,\n                \"section_title\": None,\n                \"content\": (\n                    f\"Question: {question}\\n\\n\"\n                    f\"Answer: {current_chunk}\"\n                ),\n                \"category_id\": category_id\n            }\n        })\n\nreturn output"
+      },
+      "id": "63300177-4212-4693-946b-5401e319b6eb",
+      "name": "Code in Python",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.jina.ai/v1/embeddings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer jina_3f1b30cb981242e496735d566abb8940ERH9xEqS_tcCAHwKYL12r5mVAHxO"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"jina-embeddings-v5-text-small\",\n  \"input\": [\n    {{ JSON.stringify($json.content) }}\n  ]\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "f8b2ab98-e79e-437e-b43f-e3f815e97127",
+      "name": "Jina Embeddings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1024,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1184,
+        -176
+      ],
+      "id": "eab035bd-89a1-4b0a-b3bd-0b9f4ce99911",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jikdykibhyewrfnlpptv.supabase.co/rest/v1/faq_chunks",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_secret_1g3-NRYivFEIBV415V3tnw_GcnjqMkI"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_secret_1g3-NRYivFEIBV415V3tnw_GcnjqMkI"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "=",
+        "body": "={{ JSON.stringify({\n  article_id: $json.article_id,\n  chunk_index: $json.chunk_index,\n  section_title: $json.section_title,\n  content: $json.content,\n  embedding: JSON.parse($json.embedding)\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1552,
+        -160
+      ],
+      "id": "9c5671d3-d951-41b6-80c5-5be189893174",
+      "name": "Store FAQ Chunk"
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "for item in _items:\n    embedding = item[\"json\"][\"body\"][\"data\"][0][\"embedding\"]\n\n    item[\"json\"][\"embedding\"] = \"[\" + \",\".join(\n        str(value) for value in embedding\n    ) + \"]\"\n\nreturn _items"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        -160
+      ],
+      "id": "74737eeb-96d1-4c21-bb0a-a68185df6540",
+      "name": "vector"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "faq-published",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        48,
+        0
+      ],
+      "id": "227f1f5e-3581-41f5-b5c6-de2b8f00cc3f",
+      "name": "Webhook",
+      "webhookId": "640ef11c-8027-463a-b1ef-bb2897ea3037"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Get FAQ Article": {
+      "main": [
+        [
+          {
+            "node": "Code in Python",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in Python": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Jina Embeddings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jina Embeddings": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "vector",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "vector": {
+      "main": [
+        [
+          {
+            "node": "Store FAQ Chunk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get FAQ Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3efba82b-913a-449c-a39d-0698614374a6",
+  "meta": {
+    "instanceId": "7f42db105bb7ec25c1d9c535f5a47a63f661d15ba84d2ae8d50ae8357baa5d3d"
+  },
+  "nodeGroups": [],
+  "id": "3Wnkv87lY6jW81tK",
+  "tags": []
+}

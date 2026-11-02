@@ -1,0 +1,499 @@
+{
+  "name": "W1 — Qualification automatique",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "message-created",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "90b03734-0f1f-4756-90f3-d36878259642",
+      "name": "Webhook",
+      "webhookId": "8e874131-4762-441d-b31a-d6e5a7b5dba4"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this customer service context:\n\n{{ JSON.stringify($json, null, 2) }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a customer-service message understanding system.\n\nYour task is to analyze the CURRENT CUSTOMER MESSAGE using:\n\n* the current message\n* the conversation history\n* the customer information\n* the customer's orders\n\nYour job is ONLY to understand and classify the message.\n\nDo NOT calculate a numerical urgency score.\nDo NOT calculate priority.\nDo NOT invent information that is not supported by the provided context.\n\n==================================================\n\n1. LANGUAGE\n   ==================================================\n\nIdentify the main language used by the customer.\n\nAllowed values:\n\n* fr\n* en\n* ar\n* other\n\nIf the message mixes languages, identify the dominant language.\n\n==================================================\n2. INTENT\n=========\n\nIntent means WHAT THE CUSTOMER IS TRYING TO ACHIEVE or WHAT SPECIFIC PROBLEM THE CUSTOMER IS REPORTING.\n\nChoose the most specific intent supported by the message.\n\nExamples:\n\"Where is my order?\" → delivery_not_received\n\"My package is late.\" → delivery_delay\n\"Where can I find my tracking number?\" → tracking_problem\n\"I want to return these shoes.\" → return_request\n\"My payment was declined.\" → payment_failed\n\"Can I pay by card?\" → payment_question\n\"Do you have this dress in black?\" → product_question\n\nIf the request does not clearly match one of these:\n→ other\n\nIMPORTANT:\nDo not infer a specific problem that the customer did not express.\n\n==================================================\n3. QUEUE\n========\n\nAssign the customer request to exactly ONE queue based on the identified intent.\n\nAllowed values:\n\n* delivery\n* returns\n* payment\n* products\n* general\n\nUse the following routing rules:\n\ndelivery:\n\n* delivery_not_received\n* delivery_delay\n* tracking_problem\n\nreturns:\n\n* return_request\n\npayment:\n\n* payment_failed\n* payment_question\n\nproducts:\n\n* product_question\n\ngeneral:\n\n* other\n* any request that does not clearly belong to the queues above\n\nIMPORTANT:\nThe queue must be one of the five allowed values.\nDo not invent another queue.\nDo not use \"technical\", \"escalation\", or \"general_support\".\n\n==================================================\n4. SENTIMENT\n============\n\nIdentify the customer's emotional tone.\n\nAllowed values:\n\n* positive\n* neutral\n* negative\n* angry\n\npositive: The customer expresses satisfaction, happiness, thanks, or praise.\n\nneutral: The customer asks a question or makes a request without clear positive or negative emotion.\n\nnegative: The customer expresses dissatisfaction, frustration, disappointment, or annoyance, but is not clearly aggressive or angry.\n\nangry: The customer expresses strong anger, hostility, aggression, insults, threats, accusations, or very intense frustration.\n\n==================================================\n5. ORDER REFERENCE\n==================\n\nIdentify the order involved in the customer's request.\n\nUse:\n\n* the current message\n* the conversation history\n* the customer's orders\n\nIf the customer explicitly mentions an order number such as \"ORD-2042\", return:\n\"ORD-2042\"\n\nYou may use the conversation history when the customer previously mentioned an order and the current message clearly refers to it.\n\nThe order must belong to the current customer.\n\nIf no order can be reliably identified:\n→ null\n\nNever invent an order number.\n\n==================================================\n6. URGENCY SIGNALS\n==================\n\nThe urgency assessment has four independent dimensions.\n\nIMPORTANT:\nYou ONLY classify each dimension.\nDO NOT calculate numbers.\n\n--- A. IMPACT ---\n\nImpact means HOW SERIOUSLY THE PROBLEM AFFECTS THE CUSTOMER.\n\nAllowed classes:\n\n* No impact / informational\n* Minor inconvenience\n* Significant inconvenience\n* Severe impact\n\n--- B. TIME SENSITIVITY ---\n\nTime sensitivity means HOW QUICKLY THE CUSTOMER NEEDS THE ISSUE RESOLVED.\n\nAllowed classes:\n\n* No time pressure\n* Can wait / flexible\n* Needs attention soon\n* Immediate / deadline\n\n--- C. BLOCKING LEVEL ---\n\nBlocking means WHETHER THE CUSTOMER IS PREVENTED FROM COMPLETING AN IMPORTANT ACTION.\n\nAllowed classes:\n\n* Not blocked\n* Slightly inconvenienced\n* Important action affected\n* Completely blocked\n\n--- D. PERSISTENCE ---\n\nPersistence means HOW LONG OR HOW REPEATEDLY THE SAME ISSUE HAS REMAINED UNRESOLVED.\n\nAllowed classes:\n\n* New / first contact\n* Recent\n* Delayed / unresolved\n* Long-standing / repeated attempts\n\nIMPORTANT:\nDo not classify persistence as high simply because the customer is angry.\nAnger is sentiment.\nPersistence is the history or duration of the unresolved issue.\n\n==================================================\nOUTPUT FORMAT — CRITICAL\n========================\n\nReturn ONLY a raw JSON object.\n\nThe JSON MUST contain exactly these fields:\n\n{\n\"language\": \"...\",\n\"intent\": \"...\",\n\"queue\": \"...\",\n\"sentiment\": \"...\",\n\"order_reference\": null,\n\"urgency_signals\": {\n\"impact\": \"...\",\n\"time_sensitivity\": \"...\",\n\"blocking\": \"...\",\n\"persistence\": \"...\"\n}\n}\n\nThe \"queue\" value MUST be exactly one of:\n\n\"delivery\"\n\"returns\"\n\"payment\"\n\"products\"\n\"general\"\n\nDO NOT use Markdown.\nDO NOT use `json.\nDO NOT use `.\nDO NOT add explanations.\nDO NOT add text before the JSON.\nDO NOT add text after the JSON.\nDO NOT add comments.\n\nThe first character MUST be {.\nThe last character MUST be }.\n\nThe response MUST be directly parseable using JSON.parse().\n"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        448,
+        0
+      ],
+      "id": "84323713-dc17-450a-adef-6ec3b295ef7c",
+      "name": "Understand Message"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        448,
+        176
+      ],
+      "id": "ff3d917a-51aa-49c7-96d7-d35379255c12",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "ahnq0t5U2h26mrPr",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\n\n// ==================================================\n// GET IDS FROM WEBHOOK\n// ==================================================\n\nconst webhook = $('Webhook').first().json;\n\nconst conversationId = webhook.body.conversation_id;\nconst messageId = webhook.body.message_id;\n\nif (!conversationId) {\n  throw new Error(\"Missing conversation_id.\");\n}\n\nif (!messageId) {\n  throw new Error(\"Missing message_id.\");\n}\n\n\n// ==================================================\n// URGENCY SCORE MAPPING\n// ==================================================\n\nconst impactScores = {\n  \"No impact / informational\": 0,\n  \"Minor inconvenience\": 10,\n  \"Significant inconvenience\": 20,\n  \"Severe impact\": 30\n};\n\nconst timeScores = {\n  \"No time pressure\": 0,\n  \"Can wait / flexible\": 10,\n  \"Needs attention soon\": 20,\n  \"Immediate / deadline\": 30\n};\n\nconst blockingScores = {\n  \"Not blocked\": 0,\n  \"Slightly inconvenienced\": 5,\n  \"Important action affected\": 15,\n  \"Completely blocked\": 25\n};\n\nconst persistenceScores = {\n  \"New / first contact\": 0,\n  \"Recent\": 5,\n  \"Delayed / unresolved\": 10,\n  \"Long-standing / repeated attempts\": 15\n};\n\nconst signals = data.urgency_signals;\n\nconst urgencyScore =\n  (impactScores[signals.impact] ?? 0) +\n  (timeScores[signals.time_sensitivity] ?? 0) +\n  (blockingScores[signals.blocking] ?? 0) +\n  (persistenceScores[signals.persistence] ?? 0);\n\n\n// ==================================================\n// RETURN FINAL DATA\n// ==================================================\n\nreturn [\n  {\n    json: {\n      conversation_id: conversationId,\n      message_id: messageId,\n\n      language: data.language,\n      intent: data.intent,\n      sentiment: data.sentiment,\n      order_reference: data.order_reference ?? null,\n\n      urgency_score: urgencyScore,\n      urgency_signals: data.urgency_signals,\n\n      queue: data.queue\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ],
+      "id": "b176c574-0b7c-4e8a-9ab3-2c1904516b56",
+      "name": "Urgency Score"
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhook = $('Webhook').first().json;\n\nconst conversationId = webhook.body.conversation_id;\nconst customerId = webhook.body.customer_id;\nconst messageId = webhook.body.message_id;\n\nif (!conversationId || !customerId || !messageId) {\n  throw new Error(\n    `Missing IDs. Received: conversation_id=${conversationId}, customer_id=${customerId}, message_id=${messageId}`\n  );\n}\n\nconst supabaseUrl = 'https://jikdykibhyewrfnlpptv.supabase.co';\nconst supabaseKey = 'sb_secret_1g3-NRYivFEIBV415V3tnw_GcnjqMkI';\n\nconst headers = {\n  apikey: supabaseKey,\n  Authorization: `Bearer ${supabaseKey}`,\n  'Content-Type': 'application/json'\n};\n\nasync function supabaseGet(table, query) {\n  return await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${supabaseUrl}/rest/v1/${table}?${query}`,\n    headers\n  });\n}\n\n// 1. Get conversation\nconst conversation = await supabaseGet(\n  'conversations',\n  `select=id,customer_id,order_id,channel,status,queue,language,intent,sentiment,urgency_score,priority,created_at,updated_at&id=eq.${conversationId}`\n);\n\n// 2. Get conversation history\nconst history = await supabaseGet(\n  'messages',\n  `select=id,sender_type,sender_id,content,created_at&conversation_id=eq.${conversationId}&order=created_at.asc&limit=20`\n);\n\n// 3. Get customer\nconst customer = await supabaseGet(\n  'customers',\n  `select=id,full_name,email,phone&id=eq.${customerId}`\n);\n\n// 4. Get customer orders\nconst orders = await supabaseGet(\n  'orders',\n  `select=id,customer_id,order_number,status,total_amount,currency,ordered_at,expected_delivery_at,delivered_at,tracking_number&customer_id=eq.${customerId}&order=ordered_at.desc`\n);\n\n// 5. Build complete context\nreturn [\n  {\n    json: {\n      message: {\n        id: messageId,\n        conversation_id: conversationId,\n        customer_id: customerId,\n        content: webhook.body.content,\n        channel: webhook.body.channel,\n        external_message_id: webhook.body.external_message_id,\n        created_at: webhook.body.created_at\n      },\n\n      conversation: conversation[0] || null,\n\n      conversation_history: history,\n\n      customer: customer[0] || null,\n\n      orders: orders\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "37d790b3-4903-4bac-a93f-ae44f21c773b",
+      "name": "Get Context"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://jikdykibhyewrfnlpptv.supabase.co/rest/v1/conversations",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "=eq.{{$json.conversation_id}}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_secret_1g3-NRYivFEIBV415V3tnw_GcnjqMkI"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_secret_1g3-NRYivFEIBV415V3tnw_GcnjqMkI"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"language\": \"{{$json.language}}\",\n  \"intent\": \"{{$json.intent}}\",\n  \"sentiment\": \"{{$json.sentiment}}\",\n  \"urgency_score\": {{$json.urgency_score}},\n  \"queue\": \"{{$json.queue}}\",\n  \"order_number\": \"{{$json.order_reference}}\",\n  \"updated_at\": \"{{$now.toISO()}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "d2fff285-081c-4a42-a1d9-0d36df980d2b",
+      "name": "Update Conversation"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://copilot.app.n8n.cloud/webhook/assisted-response",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"conversation_id\": \"{{ $('Webhook').first().json.body.conversation_id }}\",\n  \"message_id\": \"{{ $('Webhook').first().json.body.message_id }}\",\n  \"customer_id\": \"{{ $('Webhook').first().json.body.customer_id }}\",\n  \"content\": {{ JSON.stringify($('Webhook').first().json.body.content) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1616,
+        112
+      ],
+      "id": "c0fe8394-4420-40cb-b0b1-9a89876e51cb",
+      "name": "Trigger W2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "184af70b-6664-4e54-a343-3643918518f5",
+              "leftValue": "={{ $('Urgency Score').item.json.sentiment }}",
+              "rightValue": "angry",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1408,
+        0
+      ],
+      "id": "05818823-8c1e-4846-aa54-d62fa5f4e044",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "9sl3cntYfzZltF72",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/9sl3cntYfzZltF72",
+          "cachedResultName": "Customer Support Agent — W3 - Significant escalation"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "conversation_id": "={{ $('Urgency Score').item.json.conversation_id }}",
+            "reason": "=Customer is angry (urgency score: {{ $('Urgency Score').item.json.urgency_score }})"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "conversation_id",
+              "displayName": "conversation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1616,
+        -96
+      ],
+      "id": "95bb9513-94a3-4fdf-888f-56b3f7bcd413",
+      "name": "Call 'W3 - Significant escalation'",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a7bcab45-2aad-4c71-a3db-2fabe5a180ce",
+              "leftValue": "={{$json.id}}",
+              "rightValue": "null",
+              "operator": {
+                "type": "boolean",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1024,
+        256
+      ],
+      "id": "69aab995-4916-4c34-b803-edbc76b7c8fe",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "orders",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "order_number",
+              "keyValue": "={{$json.order_reference}}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        784,
+        256
+      ],
+      "id": "655173e1-c08b-4eaf-a0e2-added0a92a68",
+      "name": "check order",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "IyOm8dfcFy40u3Q7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "tickets",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "conversation_id",
+              "fieldValue": "={{ $('Get Context').item.json.conversation.id }}"
+            },
+            {
+              "fieldId": "created_by",
+              "fieldValue": "system"
+            },
+            {
+              "fieldId": "reason",
+              "fieldValue": "Order not found"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "new"
+            },
+            {
+              "fieldId": "assigned_to",
+              "fieldValue": "agent"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1312,
+        240
+      ],
+      "id": "95a20b4d-28d7-49cf-9f90-7af68ab1d4da",
+      "name": "Create Ticket",
+      "credentials": {
+        "supabaseApi": {
+          "id": "IyOm8dfcFy40u3Q7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.text;\n\nif (!raw) {\n  throw new Error(\"LLM returned an empty response.\");\n}\n\nlet cleaned = String(raw).trim();\n\ncleaned = cleaned\n  .replace(/^```json\\s*/i, \"\")\n  .replace(/^```\\s*/i, \"\")\n  .replace(/\\s*```$/i, \"\")\n  .trim();\n\nlet data;\n\ntry {\n  data = JSON.parse(cleaned);\n} catch (error) {\n  throw new Error(\n    `Invalid JSON from LLM: ${error.message}\\n\\nRaw output:\\n${raw}`\n  );\n}\n\nif (!data.language) {\n  throw new Error(\"Missing field: language\");\n}\n\nif (!data.intent) {\n  throw new Error(\"Missing field: intent\");\n}\n\nif (!data.queue) {\n  throw new Error(\"Missing field: queue\");\n}\n\nif (!data.sentiment) {\n  throw new Error(\"Missing field: sentiment\");\n}\n\nif (!data.urgency_signals) {\n  throw new Error(\"Missing field: urgency_signals\");\n}\n\nconst allowedQueues = [\n  \"delivery\",\n  \"returns\",\n  \"payment\",\n  \"products\",\n  \"general\"\n];\n\nif (!allowedQueues.includes(data.queue)) {\n  throw new Error(`Invalid queue: ${data.queue}`);\n}\n\nreturn [\n  {\n    json: data\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        0
+      ],
+      "id": "4732035b-1d74-42b4-bd36-161498c0e63b",
+      "name": "Parsing"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Understand Message",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Understand Message": {
+      "main": [
+        [
+          {
+            "node": "check order",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Parsing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Context": {
+      "main": [
+        [
+          {
+            "node": "Understand Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Urgency Score": {
+      "main": [
+        [
+          {
+            "node": "Update Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Conversation": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Call 'W3 - Significant escalation'",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trigger W2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check order": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Create Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsing": {
+      "main": [
+        [
+          {
+            "node": "Urgency Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "24036e58-ada3-400a-a9c2-7393a35ca562",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7f42db105bb7ec25c1d9c535f5a47a63f661d15ba84d2ae8d50ae8357baa5d3d"
+  },
+  "nodeGroups": [],
+  "id": "QS3YLeCLeTpB7j58",
+  "tags": []
+}

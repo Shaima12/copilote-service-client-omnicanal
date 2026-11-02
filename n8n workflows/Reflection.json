@@ -1,0 +1,203 @@
+{
+  "name": "Reflection",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "conversation-rejected",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -400,
+        -48
+      ],
+      "id": "d957c78f-468f-4ea4-8c2d-524e289ff2c9",
+      "name": "conversation-rejected",
+      "webhookId": "1744c913-4c08-4225-b044-58d01c6dc0f5"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==================================================\n// REFLECTION — GET CONTEXT\n// ==================================================\n\n// 1. GET CONVERSATION ID FROM WEBHOOK\n// ==================================================\n\nconst webhook = $('conversation-rejected').first().json;\n\nconst conversationId =\n  webhook.body?.conversation_id ||\n  webhook.conversation_id;\n\nif (!conversationId) {\n  throw new Error(\n    `Missing conversation_id: ${JSON.stringify(webhook)}`\n  );\n}\n\n\n// ==================================================\n// 2. SUPABASE CONNECTION\n// ==================================================\n\nconst supabaseUrl = 'https://jikdykibhyewrfnlpptv.supabase.co';\nconst supabaseKey = 'sb_secret_1g3-NRYivFEIBV415V3tnw_GcnjqMkI';\n\nconst headers = {\n  apikey: supabaseKey,\n  Authorization: `Bearer ${supabaseKey}`,\n  'Content-Type': 'application/json'\n};\n\n\n// ==================================================\n// 3. SUPABASE GET HELPER\n// ==================================================\n\nasync function supabaseGet(table, query) {\n  try {\n    return await this.helpers.httpRequest({\n      method: 'GET',\n      url: `${supabaseUrl}/rest/v1/${table}?${query}`,\n      headers\n    });\n  } catch (error) {\n    throw new Error(\n      `Supabase GET failed for table \"${table}\": ${\n        error.message || error\n      }`\n    );\n  }\n}\n\n\n// ==================================================\n// 4. GET CONVERSATION\n// ==================================================\n\nconst conversations = await supabaseGet(\n  'conversations',\n  `select=id,customer_id,channel,status,queue,language,intent,sentiment,urgency_score,order_id,order_number,created_at,updated_at` +\n  `&id=eq.${conversationId}`\n);\n\nconst conversation = conversations[0];\n\nif (!conversation) {\n  throw new Error(\n    `Conversation not found: ${conversationId}`\n  );\n}\n\n\n// ==================================================\n// 5. GET CUSTOMER\n// ==================================================\n\nconst customers = await supabaseGet(\n  'customers',\n  `select=id,full_name,email,phone` +\n  `&id=eq.${conversation.customer_id}`\n);\n\nconst customer = customers[0] || null;\n\n\n// ==================================================\n// 6. GET CUSTOMER MESSAGE\n// ==================================================\n//\n// Get the latest customer message.\n// This is the message that the AI was responding to.\n//\n\nconst customerMessages = await supabaseGet(\n  'messages',\n  `select=id,conversation_id,sender_type,sender_id,content,created_at` +\n  `&conversation_id=eq.${conversationId}` +\n  `&sender_type=eq.customer` +\n  `&order=created_at.desc` +\n  `&limit=1`\n);\n\nconst customerMessage = customerMessages[0] || null;\n\nif (!customerMessage) {\n  throw new Error(\n    `No customer message found for conversation: ${conversationId}`\n  );\n}\n\n\n// ==================================================\n// 7. GET PREVIOUS AI ANSWER\n// ==================================================\n//\n// message_versions contains:\n// - message_id\n// - version_number\n// - content\n// - author_type\n// - author_id\n// - conversation_id\n//\n// We retrieve the latest AI-generated version.\n//\n\nconst aiVersions = await supabaseGet(\n  'message_versions',\n  `select=id,message_id,version_number,content,author_type,author_id,created_at,conversation_id` +\n  `&conversation_id=eq.${conversationId}` +\n  `&author_type=eq.ai` +\n  `&order=version_number.desc` +\n  `&limit=1`\n);\n\nconst previousAiVersion = aiVersions[0] || null;\n\nif (!previousAiVersion) {\n  throw new Error(\n    `No AI message version found for conversation: ${conversationId}`\n  );\n}\n\n\n// ==================================================\n// 8. GET ORDER\n// ==================================================\n\nlet order = null;\n\nif (conversation.order_number) {\n\n  const orders = await supabaseGet(\n    'orders',\n    `select=id,customer_id,order_number,status,total_amount,currency,ordered_at,expected_delivery_at,delivered_at,tracking_number` +\n    `&customer_id=eq.${conversation.customer_id}` +\n    `&order_number=eq.${encodeURIComponent(\n      conversation.order_number\n    )}`\n  );\n\n  order = orders[0] || null;\n}\n\n\n// ==================================================\n// 9. GET RAG SOURCES\n// ==================================================\n//\n// IMPORTANT:\n// We currently do not have a confirmed table that links\n// message_versions to faq_chunks.\n//\n// Therefore we leave sources empty rather than inventing\n// which chunks were used.\n//\n// Later, if you have something like:\n//\n// message_version_sources\n// -----------------------\n// message_version_id\n// chunk_id\n// similarity\n//\n// we can retrieve the exact sources here.\n//\n\nconst sources = [];\n\n\n// ==================================================\n// 10. RETURN REFLECTION CONTEXT\n// ==================================================\n\nreturn [\n  {\n    json: {\n\n      // ----------------------------------------------\n      // CONVERSATION\n      // ----------------------------------------------\n\n      conversation: {\n        id: conversation.id,\n        status: conversation.status,\n        intent: conversation.intent,\n        language: conversation.language,\n        sentiment: conversation.sentiment,\n        urgency_score: conversation.urgency_score\n      },\n\n\n      // ----------------------------------------------\n      // CUSTOMER\n      // ----------------------------------------------\n\n      customer: customer\n        ? {\n            id: customer.id,\n            full_name: customer.full_name,\n            email: customer.email,\n            phone: customer.phone\n          }\n        : null,\n\n\n      // ----------------------------------------------\n      // CUSTOMER MESSAGE\n      // ----------------------------------------------\n\n      customer_message: {\n        id: customerMessage.id,\n        content: customerMessage.content,\n        created_at: customerMessage.created_at\n      },\n\n\n      // ----------------------------------------------\n      // PREVIOUS AI ANSWER\n      // ----------------------------------------------\n\n      previous_ai_answer: {\n        message_id: previousAiVersion.message_id,\n        version: previousAiVersion.version_number,\n        content: previousAiVersion.content\n      },\n\n\n      // ----------------------------------------------\n      // RAG SOURCES\n      // ----------------------------------------------\n\n      sources,\n\n\n      // ----------------------------------------------\n      // ORDER\n      // ----------------------------------------------\n\n      order: order\n        ? {\n            order_number: order.order_number,\n            status: order.status,\n            tracking_number: order.tracking_number\n          }\n        : null\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        -48
+      ],
+      "id": "57300147-bd1a-4e45-9f27-93ca0c06d023",
+      "name": "Get Context For Rejection"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        48,
+        112
+      ],
+      "id": "b7653ccc-5758-4354-9da4-d0982672cac7",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "ahnq0t5U2h26mrPr",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the following customer-service context and generate a corrected answer.\n\nCUSTOMER MESSAGE:\n{{ $json.customer_message.content }}\n\nCONVERSATION:\nStatus: {{ $json.conversation.status }}\nIntent: {{ $json.conversation.intent }}\nLanguage: {{ $json.conversation.language }}\nSentiment: {{ $json.conversation.sentiment }}\nUrgency score: {{ $json.conversation.urgency_score }}\n\nCUSTOMER:\nName: {{ $json.customer.full_name }}\nEmail: {{ $json.customer.email }}\n\nPREVIOUS AI ANSWER:\n{{ $json.previous_ai_answer.content }}\n\nORDER:\n{{ JSON.stringify($json.order) }}\n\nSOURCES:\n{{ JSON.stringify($json.sources) }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=You are a customer-service response reflection agent for the company.\n\nYou act as a professional customer service support representative. Your responses must sound like they come from an experienced, professional customer service team representing the company.\n\nYour task is to review a previously generated AI response and produce a corrected response for a human support agent to review.\n\nYou MUST analyze:\n\n* the customer's original message\n* the previous AI answer\n* the conversation context\n* the available order information\n* the available knowledge sources\n\nIMPORTANT RULES:\n\n1. CUSTOMER SERVICE ROLE\n\nRespond as the company's customer service support team.\n\nThe response must:\n\n* professionally acknowledge the customer's concern\n* show appropriate empathy without being exaggerated\n* be helpful and solution-oriented\n* clearly explain the next step when information is missing\n* maintain a respectful and professional customer-service tone\n* sound natural, like a real company support agent\n* avoid robotic, generic, or overly verbose language\n* never blame the customer\n* never promise something that cannot be confirmed from the provided context\n\nThe goal is to help the customer move toward a resolution while remaining factually accurate.\n\n2. FACTUALITY\n\nUse ONLY facts explicitly available in the provided context.\n\n3. NO INVENTION\n\nNever invent:\n\n* order status\n* delivery dates\n* tracking numbers\n* tracking information\n* refund information\n* prices\n* policies\n* actions performed\n* customer/order information\n\n4. ORDER INFORMATION\n\nIf \"order\" is null, you do NOT have access to the customer's order details.\n\nIn that case:\n\n* do not claim that the order is being tracked\n* do not claim that a tracking number exists\n* do not claim that the delivery date has passed\n* do not claim that you checked the order\n* ask the customer for the order number if it is necessary to investigate the issue\n\n5. FAQ / SOURCE FACTS\n\nA statement in a knowledge source that describes a condition does NOT mean that the condition is true for this customer.\n\nExample:\n\"If the delivery date has passed, contact support.\"\n\nThis does NOT mean:\n\"The delivery date has passed.\"\n\nOnly state that a delivery date has passed if the customer/order context explicitly confirms it.\n\n6. PREVIOUS ANSWER\n\nIdentify and correct unsupported claims from the previous AI answer.\n\nDo not preserve an incorrect statement simply because it appeared in the previous answer.\n\n7. CUSTOMER LANGUAGE\n\nRespond in the customer's language.\n\nThe customer's language is:\n{{ $json.conversation.language }}\n\n8. PROFESSIONAL CUSTOMER SERVICE STYLE\n\nThe response must be:\n\n* concise\n* professional\n* empathetic\n* natural\n* clear\n* solution-oriented\n* suitable for a real customer-service interaction\n\nWhen information is missing, politely request the specific information needed to continue helping the customer.\n\nDo not ask unnecessary questions when the available context already provides the required information.\n\n9. REFLECTION\n\nDo not explain your analysis.\n\nDo not mention:\n\n* the previous answer\n* AI\n* LLM\n* RAG\n* reflection\n* sources\n* embeddings\n* internal systems\n* internal workflows\n\nThe customer should receive only the final professional support response.\n\n10. OUTPUT\n\nReturn ONLY valid JSON.\n\nNo markdown.\nNo ```json.\nNo explanation outside the JSON.\n\nThe JSON MUST contain exactly one field:\n\n{\n\"answer\": \"...\"\n}\n"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        48,
+        -48
+      ],
+      "id": "8dff8d8f-bbec-4bbb-947a-8874c4c4e36a",
+      "name": "Reflection generation"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $('Reflection generation').first().json;\n\nif (!output.text) {\n  throw new Error('Missing Reflection output.');\n}\n\nlet data;\n\ntry {\n  data = JSON.parse(output.text);\n} catch (error) {\n  throw new Error(`Invalid Reflection JSON: ${error.message}`);\n}\n\nif (!data.answer) {\n  throw new Error('Reflection JSON does not contain answer.');\n}\n\nreturn [\n  {\n    json: {\n      answer: data.answer\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        -48
+      ],
+      "id": "c0d55bc7-98dc-4826-a0b3-49f28ba9d48a",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "tableId": "message_versions",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "conversation_id",
+              "fieldValue": "={{ $('Get Context For Rejection').item.json.conversation.id }}"
+            },
+            {
+              "fieldId": "message_id",
+              "fieldValue": "={{ $('Get Context For Rejection').item.json.customer_message.id }}"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $json.answer }}"
+            },
+            {
+              "fieldId": "author_type",
+              "fieldValue": "ai-reflection"
+            },
+            {
+              "fieldId": "version_number",
+              "fieldValue": "0"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        640,
+        -48
+      ],
+      "id": "9c76f593-6bc7-4e2a-aa8b-4345496d41eb",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "IyOm8dfcFy40u3Q7",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "conversation-rejected": {
+      "main": [
+        [
+          {
+            "node": "Get Context For Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Context For Rejection": {
+      "main": [
+        [
+          {
+            "node": "Reflection generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Reflection generation",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reflection generation": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3271ceb2-53b1-4541-b911-69d27cc18f6a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7f42db105bb7ec25c1d9c535f5a47a63f661d15ba84d2ae8d50ae8357baa5d3d"
+  },
+  "nodeGroups": [],
+  "id": "mn52JQBTAXKX2jzK",
+  "tags": []
+}
