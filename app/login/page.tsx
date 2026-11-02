@@ -121,7 +121,7 @@ function LoginForm() {
               className="flex items-center gap-2.5 text-lg font-bold"
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#f6c96e] text-sm text-[#14231f]">
-                Z
+                C
               </span>
               Customer Support Agent
             </Link>
@@ -156,7 +156,7 @@ function LoginForm() {
               className="mb-12 flex items-center gap-2.5 text-lg font-bold lg:hidden"
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#14231f] text-sm text-[#f6c96e]">
-                Z
+                C
               </span>
               Customer Support Agent
             </Link>

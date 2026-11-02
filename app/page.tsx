@@ -90,7 +90,7 @@ export default function Home() {
             <div className="overflow-hidden rounded-[22px] border border-[#d9e1dc] bg-white shadow-[0_28px_70px_rgba(38,64,52,0.16)]">
               <div className="flex items-center justify-between border-b border-[#edf0ed] px-5 py-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#14231f] text-xs font-bold text-[#f6c96e]">Z</div>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#14231f] text-xs font-bold text-[#f6c96e]">C</div>
                   <div>
                     <p className="text-xs font-bold">Customer inbox</p>
                     <p className="text-[10px] text-[#8a9890]">Tuesday, 09:41</p>
