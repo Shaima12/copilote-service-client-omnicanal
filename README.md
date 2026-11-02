@@ -1,49 +1,178 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Customer Support Agent
+
+Customer Support Agent is a role-based support workspace for managing conversations, AI-assisted replies, escalations, and operational knowledge. The application is built with Next.js and Supabase, while the automation layer is maintained separately in n8n.
+
+The product is organized around three workspaces:
+
+- **Client:** view profile and orders, then open and continue support conversations.
+- **Agent:** triage the inbox, review AI drafts, edit or send responses, reject drafts, and escalate complex cases.
+- **Supervisor:** monitor KPIs, manage the knowledge base, review escalations, and resolve supervisor-owned conversations.
+
+## Core Capabilities
+
+- Supabase Auth with server-side role and user-identity checks.
+- Conversation, message, ticket, order, FAQ, draft, and audit-log data stored in Supabase.
+- Real-time updates for conversations, messages, drafts, tickets, customers, and knowledge-base records.
+- AI draft review with human acceptance, editing, rejection, and escalation controls.
+- Priority visibility based on urgency, sentiment, queue, and waiting time.
+- Supervisor escalation center and operational dashboard.
+- FAQ and chunk management for retrieval-augmented response generation.
+- Resend test endpoint for validating server-side email delivery.
+
+## Technology
+
+| Area | Technology |
+| --- | --- |
+| Web application | Next.js 16 App Router, React 19, TypeScript |
+| UI | Tailwind CSS v4, lucide-react |
+| Authentication and database | Supabase Auth, PostgreSQL, Supabase SSR |
+| Realtime | Supabase Realtime / Postgres changes |
+| Email | Resend |
+| Automation | n8n workflows maintained outside this repository |
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 20 or later
+- npm
+- A Supabase project with the required schema and Row Level Security policies
+- Optional: a Resend API key for the email test route
+- Optional: the separately maintained n8n workflows for AI qualification, drafting, and escalation
+
+### Install and run
 
 ```bash
+cd customer-support-agent
+npm install
+copy .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000` after the development server starts.
 
-## Supabase Realtime
+### Environment variables
 
-The conversation, message, and ticket screens subscribe to Supabase Realtime. Enable the tables in the Supabase SQL Editor before testing live updates:
+Set the following values in `.env.local`:
 
-```sql
-alter publication supabase_realtime add table public.messages;
-alter publication supabase_realtime add table public.conversations;
-alter publication supabase_realtime add table public.tickets;
-alter publication supabase_realtime add table public.message_versions;
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL. |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable/anonymous key. |
+| `RESEND_API_KEY` | Server-side Resend credential used by the email test route. |
+
+Do not commit `.env.local` or any secret credentials.
+
+### Available scripts
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the development server. |
+| `npm run build` | Create a production build. |
+| `npm run start` | Start the production server. |
+| `npm run lint` | Run ESLint. |
+
+## Application Structure
+
+```text
+customer-support-agent/
+├── app/
+│   ├── login/                         Authentication UI
+│   ├── signup/                        Account creation
+│   ├── client/[userId]/               Customer workspace
+│   │   ├── orders/                    Order tracking
+│   │   └── support/                   Support conversations
+│   ├── agent/[userId]/                Agent workspace
+│   │   ├── conversations/             Inbox and draft review
+│   │   ├── faq/                       FAQ search
+│   │   └── profile/                   Agent profile
+│   ├── supervisor/[userId]/           Supervisor workspace
+│   │   ├── dashboard/                 Operational dashboard
+│   │   ├── escalations/               Escalation center
+│   │   └── knowledge-base/            FAQ and chunk management
+│   └── api/email/test/                Resend test endpoint
+├── components/                        Shared UI components
+├── hooks/                             Global realtime utilities
+├── lib/auth/                          Role authorization helpers
+├── lib/supabase/                      Browser, server, and realtime clients
+├── public/                            Static assets
+├── .env.example                       Environment variable template
+└── package.json                        Scripts and dependencies
 ```
 
-If a table is already in the publication, keep the existing entry. Realtime still follows the tables' Row Level Security policies; do not make these channels public to bypass authorization.
+Route layouts use `requireRole` to verify both the authenticated user ID and the expected profile role. Unauthorized requests are redirected to the login or unauthorized page.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Supabase Data Model
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The application expects the following logical entities:
 
-## Learn More
+| Entity | Responsibility |
+| --- | --- |
+| `profiles` | Authenticated user details, role, and customer relationship. |
+| `customers` | Customer records associated with conversations and orders. |
+| `conversations` | Threads, channels, queue, status, sentiment, intent, and urgency score. |
+| `messages` | Customer, agent, and supervisor messages. |
+| `message_versions` | AI, reflection, agent, and supervisor draft versions. |
+| `tickets` | Escalation records and resolution status. |
+| `orders` | Customer order context. |
+| `faq_articles`, `faq_chunks` | Knowledge-base source material for retrieval. |
+| `ai_response_sources` | FAQ chunks used by an AI response. |
+| `conversation_audit_logs` | Traceability for review, edits, rejection, sending, and escalation. |
 
-To learn more about Next.js, take a look at the following resources:
+Enable the relevant tables in the Supabase Realtime publication when testing live updates. Realtime must continue to respect Row Level Security policies.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## n8n Automation Workflows
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+n8n is a separate integration layer. Workflow exports and credentials are not included in this repository. The workflows exchange conversation data with Supabase and return analysis, drafts, notifications, or corrected drafts for the application to display.
 
-## Deploy on Vercel
+| Workflow | Trigger | Responsibility | Application result |
+| --- | --- | --- | --- |
+| **W1 - Qualification** | New customer message | Detect language, intent, sentiment, impact, time sensitivity, blocking, and persistence. Calculate an urgency score. | Conversation priority, queue, and qualification fields are updated. |
+| **W2 - Assisted Response** | New or qualifying conversation | Retrieve relevant FAQ chunks, use RAG/LLM generation, and create an AI response draft. | A draft is stored as a `message_versions` record with AI authorship and can be reviewed by an agent. |
+| **W3 - Escalation** | Agent escalation or high-risk case | Create or update an escalation, notify the supervisor channel, and coordinate additional handling. | A ticket appears in the supervisor escalation center. |
+| **Reflection - AI Correction** | AI draft rejection or required correction | Re-evaluate the conversation and produce an improved response draft. | A corrected `message_versions` record is returned for another human review. |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The application remains human-in-the-loop: AI output is presented as a draft, and an agent or supervisor must review it before sending.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## End-to-End Flow
+
+```text
+Customer message
+   |
+   v
+W1 - Qualification
+   |
+   v
+Urgency and conversation classification
+   |
+   +----------------------+
+   |                      |
+   v                      v
+W2 - Assisted Response   W3 - Escalation
+   |                      |
+   v                      v
+FAQ retrieval and AI      Ticket and supervisor
+draft generation          notification
+   |                      |
+   +----------+-----------+
+           |
+           v
+       Human review
+       /          \
+   Accept        Reject or escalate
+      |                |
+      v                v
+    Send       Reflection - AI Correction
+              |
+              v
+          Corrected draft
+              |
+              v
+           Human review
+```
+
+In the normal path, the customer message is qualified, an assisted response is drafted, and an agent reviews and sends the final response. High-urgency or complex cases are escalated to a ticket for supervisor handling. Rejected AI drafts can enter the Reflection workflow before returning to human review.
+
+## License
+
+Private and proprietary.

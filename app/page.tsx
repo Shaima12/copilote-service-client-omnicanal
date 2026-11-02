@@ -24,9 +24,11 @@ export default function Home() {
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-8">
           <Link href="/" className="flex items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#14231f] text-sm font-bold text-[#f6c96e] shadow-sm">
-              Z
+              C
             </span>
-            <span className="text-lg font-bold tracking-[-0.04em]">ZEN</span>
+            <span className="text-lg font-bold tracking-[-0.04em]">
+              Customer Support Agent
+            </span>
           </Link>
 
           <div className="flex items-center gap-3 text-sm font-semibold">
@@ -57,7 +59,7 @@ export default function Home() {
             </h1>
 
             <p className="mt-7 max-w-lg text-base leading-7 text-[#5d6c65] sm:text-lg">
-              ZEN brings every customer conversation into focus, helping your team respond faster, stay thoughtful, and never lose the thread.
+              Customer Support Agent brings every customer conversation into focus, helping your team respond faster, stay thoughtful, and never lose the thread.
             </p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -65,7 +67,7 @@ export default function Home() {
                 href="/signup"
                 className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#e5a629] px-5 py-3.5 text-sm font-bold text-[#14231f] shadow-[0_10px_24px_rgba(229,166,41,0.22)] transition hover:-translate-y-0.5 hover:bg-[#f0b63c]"
               >
-                Start with ZEN
+                Start with Customer Support Agent
                 <ArrowRight size={16} className="transition group-hover:translate-x-0.5" />
               </Link>
               <Link

@@ -43,7 +43,7 @@ function SupervisorShell({
       <header className="sticky top-0 z-20 border-b border-gray-200 bg-white lg:hidden">
         <div className="flex items-center justify-between px-5 py-4">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">ZEN</h1>
+            <h1 className="text-xl font-bold tracking-tight">Customer Support Agent</h1>
             <p className="text-xs text-gray-500">Supervisor</p>
           </div>
 
@@ -77,7 +77,7 @@ function SupervisorShell({
       <div className="flex min-h-screen">
         <aside className="hidden w-64 shrink-0 border-r border-gray-200 bg-white lg:flex lg:flex-col">
           <div className="border-b border-gray-100 px-6 py-6">
-            <h1 className="text-2xl font-bold tracking-tight">ZEN</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Customer Support Agent</h1>
             <p className="mt-1 text-xs text-gray-500">Supervisor</p>
           </div>
 

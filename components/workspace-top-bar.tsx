@@ -38,21 +38,33 @@ export default function WorkspaceTopBar({
   const [open, setOpen] = useState(false);
   const [hasRestoredNotifications, setHasRestoredNotifications] =
     useState(false);
-  const notificationStorageKey = `zen-notifications:${role}:${userId}`;
+  const notificationStorageKey = `customer-support-agent-notifications:${role}:${userId}`;
+  const legacyNotificationStorageKey = `zen-notifications:${role}:${userId}`;
 
   useEffect(() => {
     let cancelled = false;
 
     queueMicrotask(() => {
       try {
-        const savedNotifications = window.localStorage.getItem(
-          notificationStorageKey
-        );
+        const savedNotifications =
+          window.localStorage.getItem(notificationStorageKey) ??
+          window.localStorage.getItem(legacyNotificationStorageKey);
 
         if (savedNotifications) {
           const parsedNotifications = JSON.parse(savedNotifications);
 
           if (!cancelled && Array.isArray(parsedNotifications)) {
+            if (!window.localStorage.getItem(notificationStorageKey)) {
+              try {
+                window.localStorage.setItem(
+                  notificationStorageKey,
+                  savedNotifications
+                );
+              } catch (error) {
+                console.error("Could not migrate notifications:", error);
+              }
+            }
+
             setNotifications((current) => {
               const allNotifications = [...current, ...parsedNotifications];
 
@@ -78,7 +90,7 @@ export default function WorkspaceTopBar({
     return () => {
       cancelled = true;
     };
-  }, [notificationStorageKey]);
+  }, [legacyNotificationStorageKey, notificationStorageKey]);
 
   useEffect(() => {
     if (!hasRestoredNotifications) {
@@ -382,9 +394,11 @@ export default function WorkspaceTopBar({
     <div className="relative z-40 mb-6 flex items-center justify-between rounded-2xl border border-[#d8e4da] bg-[#14231f] px-4 py-3 text-white shadow-[0_8px_24px_rgba(20,35,31,0.12)] sm:px-5">
       <Link href="/" className="flex items-center gap-2.5">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f6c96e] text-sm font-bold text-[#14231f]">
-          Z
+          C
         </span>
-        <span className="text-base font-bold tracking-[-0.04em]">ZEN</span>
+        <span className="text-base font-bold tracking-[-0.04em]">
+          Customer Support Agent
+        </span>
       </Link>
 
       <div className="relative">

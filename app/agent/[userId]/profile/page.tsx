@@ -100,7 +100,7 @@ export default function AgentProfilePage() {
       <div className="flex min-h-screen">
         <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-gray-200 bg-white md:flex md:flex-col">
           <div className="border-b border-gray-100 px-6 py-6">
-            <h1 className="text-2xl font-bold tracking-tight">ZEN</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Customer Support Agent</h1>
             <p className="mt-1 text-xs text-gray-500">Agent workspace</p>
           </div>
 
@@ -168,7 +168,7 @@ export default function AgentProfilePage() {
                   </div>
                   <div>
                     <h2 className="text-sm font-semibold">Account information</h2>
-                    <p className="mt-0.5 text-xs text-gray-500">Your ZEN agent profile</p>
+                    <p className="mt-0.5 text-xs text-gray-500">Your agent profile</p>
                   </div>
                 </div>
               </div>

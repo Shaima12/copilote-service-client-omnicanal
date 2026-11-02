@@ -123,7 +123,7 @@ function LoginForm() {
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#f6c96e] text-sm text-[#14231f]">
                 Z
               </span>
-              ZEN
+              Customer Support Agent
             </Link>
 
             <div className="mt-28 max-w-md">
@@ -136,7 +136,7 @@ function LoginForm() {
               </h2>
 
               <p className="mt-6 text-base leading-7 text-[#b8c9be]">
-                Pick up where your team left off. ZEN keeps every customer
+                Pick up where your team left off. Customer Support Agent keeps every customer
                 moment organized, human, and ready for action.
               </p>
             </div>
@@ -158,7 +158,7 @@ function LoginForm() {
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#14231f] text-sm text-[#f6c96e]">
                 Z
               </span>
-              ZEN
+              Customer Support Agent
             </Link>
 
             <div className="mb-8">
@@ -167,7 +167,7 @@ function LoginForm() {
               </p>
 
               <h1 className="mt-3 text-4xl font-bold tracking-[-0.055em]">
-                Sign in to ZEN.
+                Sign in to Customer Support Agent.
               </h1>
 
               <p className="mt-3 text-sm leading-6 text-[#718078]">

@@ -2047,7 +2047,7 @@ export default function AgentConversationsPage() {
 
           <div>
             <h1 className="text-xl font-bold tracking-tight">
-              ZEN
+              Customer Support Agent
             </h1>
 
             <p className="text-[11px] text-gray-500">
@@ -2129,7 +2129,7 @@ export default function AgentConversationsPage() {
           <div className="border-b border-gray-100 px-6 py-6">
 
             <h1 className="text-2xl font-bold tracking-tight">
-              ZEN
+              Customer Support Agent
             </h1>
 
             <p className="mt-1 text-xs text-gray-500">

@@ -132,7 +132,7 @@ export default function ClientHomePage() {
 
           <div>
             <h1 className="text-xl font-bold tracking-tight text-gray-900">
-              ZEN
+              Customer Support Agent
             </h1>
 
             <p className="mt-0.5 text-[11px] text-gray-500">
@@ -173,18 +173,6 @@ export default function ClientHomePage() {
             onClick={() => router.push(`/client/${routeUserId}/support`)}
           />
 
-          <MobileNavItem
-            icon={<ClipboardList size={17} strokeWidth={1.8} />}
-            label="Requests"
-            onClick={() => router.push(`/client/${routeUserId}/requests`)}
-          />
-
-          <MobileNavItem
-            icon={<UserCircle size={17} strokeWidth={1.8} />}
-            label="Profile"
-            onClick={() => router.push(`/client/${routeUserId}/profile`)}
-          />
-
         </nav>
 
       </header>
@@ -201,7 +189,7 @@ export default function ClientHomePage() {
           <div className="border-b border-gray-100 px-6 py-6">
 
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              ZEN
+              Customer Support Agent
             </h1>
 
             <p className="mt-1 text-xs text-gray-500">
@@ -238,18 +226,6 @@ export default function ClientHomePage() {
                 icon={<MessageCircle size={18} strokeWidth={1.8} />}
                 label="Customer Support"
                 onClick={() => router.push(`/client/${routeUserId}/support`)}
-              />
-
-              <SidebarItem
-                icon={<ClipboardList size={18} strokeWidth={1.8} />}
-                label="Requests"
-                onClick={() => router.push(`/client/${routeUserId}/requests`)}
-              />
-
-              <SidebarItem
-                icon={<UserCircle size={18} strokeWidth={1.8} />}
-                label="Profile"
-                onClick={() => router.push(`/client/${routeUserId}/profile`)}
               />
 
             </div>
@@ -327,7 +303,7 @@ export default function ClientHomePage() {
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
                 Manage your account, follow your orders, and get help from
-                the ZEN support team whenever you need it.
+                our support team whenever you need it.
               </p>
 
             </section>

@@ -482,7 +482,7 @@ async function createConversation() {
         <div className="flex items-center justify-between px-5 py-4">
           <div>
             <h1 className="text-xl font-bold tracking-tight text-gray-900">
-              ZEN
+              Customer Support Agent
             </h1>
 
             <p className="mt-0.5 text-[11px] text-gray-500">
@@ -519,17 +519,6 @@ async function createConversation() {
             onClick={() => router.push(`/client/${routeUserId}/support`)}
           />
 
-          <MobileNavItem
-            icon={<ClipboardList size={17} strokeWidth={1.8} />}
-            label="Requests"
-            onClick={() => router.push(`/client/${routeUserId}/requests`)}
-          />
-
-          <MobileNavItem
-            icon={<UserCircle size={17} strokeWidth={1.8} />}
-            label="Profile"
-            onClick={() => router.push(`/client/${routeUserId}/profile`)}
-          />
         </nav>
       </header>
 
@@ -543,7 +532,7 @@ async function createConversation() {
 
           <div className="border-b border-gray-100 px-6 py-6">
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              ZEN
+              Customer Support Agent
             </h1>
 
             <p className="mt-1 text-xs text-gray-500">Customer Portal</p>
@@ -576,17 +565,6 @@ async function createConversation() {
                 onClick={() => router.push(`/client/${routeUserId}/support`)}
               />
 
-              <SidebarItem
-                icon={<ClipboardList size={18} strokeWidth={1.8} />}
-                label="Requests"
-                onClick={() => router.push(`/client/${routeUserId}/requests`)}
-              />
-
-              <SidebarItem
-                icon={<UserCircle size={18} strokeWidth={1.8} />}
-                label="Profile"
-                onClick={() => router.push(`/client/${routeUserId}/profile`)}
-              />
             </div>
           </nav>
 
@@ -642,7 +620,7 @@ async function createConversation() {
               </h1>
 
               <p className="mt-1 text-sm text-gray-500">
-                Start a conversation with the ZEN support team.
+                Start a conversation with our support team.
               </p>
             </section>
 
@@ -858,7 +836,7 @@ async function createConversation() {
                           </div>
 
                           <p className="mt-2 text-center text-[10px] text-gray-400">
-                            ZEN Customer Support
+                            Customer Support Agent
                           </p>
                         </div>
                       </div>
@@ -1060,10 +1038,10 @@ function MessageBubble({ message }: { message: Message }) {
     message.sender_type === "customer"
       ? "You"
       : message.sender_type === "ai"
-        ? "ZEN Assistant"
+        ? "AI Assistant"
         : message.sender_type === "agent"
-          ? "ZEN Support"
-          : "ZEN Supervisor";
+          ? "Support Agent"
+          : "Supervisor";
 
   return (
     <div
@@ -1147,7 +1125,7 @@ function NoConversationSelected({
       </div>
 
       <h2 className="mt-5 text-base font-semibold text-gray-900">
-        Welcome to ZEN Support
+        Welcome to Customer Support Agent
       </h2>
 
       <p className="mt-2 max-w-sm text-sm leading-6 text-gray-500">

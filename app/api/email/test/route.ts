@@ -5,11 +5,11 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export async function GET() {
   try {
     const { data, error } = await resend.emails.send({
-      from: "ZEN Copilot <onboarding@resend.dev>",
+      from: "Customer Support Agent <onboarding@resend.dev>",
       to: ["ichaoui.shaima@gmail.com"],
-      subject: "ZEN Copilot - Resend Test",
+      subject: "Customer Support Agent - Resend Test",
       html: `
-        <h1>ZEN Copilot</h1>
+        <h1>Customer Support Agent</h1>
         <p>This is a test email sent through Resend.</p>
         <p>Resend is working correctly. ✅</p>
       `,

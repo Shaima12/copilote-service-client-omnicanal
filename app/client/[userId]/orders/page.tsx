@@ -176,7 +176,7 @@ console.log("==================================");
 
           <div>
             <h1 className="text-xl font-bold tracking-tight text-gray-900">
-              ZEN
+              Customer Support Agent
             </h1>
             <p className="mt-0.5 text-[11px] text-gray-500">
               Customer Portal
@@ -216,20 +216,6 @@ console.log("==================================");
             <MessageCircle size={16} /> Support
           </a>
 
-          <a
-            href={`/client/${routeUserId}/requests`}
-            className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50"
-          >
-            <ClipboardList size={16} /> Requests
-          </a>
-
-          <a
-            href={`/client/${routeUserId}/profile`}
-            className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50"
-          >
-            <UserCircle size={16} /> Profile
-          </a>
-
         </nav>
       </header>
 
@@ -241,7 +227,7 @@ console.log("==================================");
           {/* Logo */}
           <div className="border-b border-gray-100 px-6 py-6">
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              ZEN
+              Customer Support Agent
             </h1>
             <p className="mt-1 text-xs text-gray-500">
               Customer Portal
@@ -277,22 +263,6 @@ console.log("==================================");
             >
               <MessageCircle size={18} />
               <span>Customer Support</span>
-            </a>
-
-            <a
-              href={`/client/${routeUserId}/requests`}
-              className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
-            >
-              <ClipboardList size={18} />
-              <span>Requests</span>
-            </a>
-
-            <a
-              href={`/client/${routeUserId}/profile`}
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
-            >
-              <UserCircle size={18} />
-              <span>Profile</span>
             </a>
 
           </nav>
@@ -608,4 +578,3 @@ console.log("==================================");
     </main>
   );
 }
-

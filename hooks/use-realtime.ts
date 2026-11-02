@@ -25,7 +25,7 @@ export function useRealtime(onChange?: () => void) {
     const supabase = createClient();
 
     const channel = supabase.channel(
-      `zen-global-realtime-${crypto.randomUUID()}`
+      `customer-support-agent-global-realtime-${crypto.randomUUID()}`
     );
 
     console.log("🟡 REALTIME: creating channel");
